@@ -64,7 +64,7 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
   const bool has_uint8 = data.size() > 0;
   const bool has_mean_values = mean_values_.size() > 0;
 
-  CHECK_GT(datum_channels, 0);
+  CHECK_EQ(datum_channels, 3);
   CHECK_GE(datum_height, crop_size);
   CHECK_GE(datum_width, crop_size);
 

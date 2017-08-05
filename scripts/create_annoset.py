@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 import sys
+sys.path
 
 from caffe.proto import caffe_pb2
 from google.protobuf import text_format
@@ -19,7 +20,7 @@ if __name__ == "__main__":
       help="The directory to store the link of the database files.")
   parser.add_argument("--redo", default = False, action = "store_true",
       help="Recreate the database.")
-  parser.add_argument("--anno-type", default = "classification",
+  parser.add_argument("--anno-type", default = "detection",
       help="The type of annotation {classification, detection}.")
   parser.add_argument("--label-type", default = "xml",
       help="The type of label file format for detection {xml, json, txt}.")
@@ -27,9 +28,9 @@ if __name__ == "__main__":
       help="The backend {lmdb, leveldb} for storing the result")
   parser.add_argument("--check-size", default = False, action = "store_true",
       help="Check that all the datum have the same size.")
-  parser.add_argument("--encode-type", default = "",
+  parser.add_argument("--encode-type", default = "jpg",
       help="What type should we encode the image as ('png','jpg',...).")
-  parser.add_argument("--encoded", default = False, action = "store_true",
+  parser.add_argument("--encoded", default = True, action = "store_true",
       help="The encoded image will be save in datum.")
   parser.add_argument("--gray", default = False, action = "store_true",
       help="Treat images as grayscale ones.")

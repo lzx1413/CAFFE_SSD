@@ -565,7 +565,7 @@ message TransformationParameter {
   // (would subtract them from the corresponding channel)
   repeated float mean_value = 5;
   // Force the decoded image to have 3 color channels.
-  optional bool force_color = 6 [default = false];
+  optional bool force_color = 6 [default = true];
   // Force the decoded image to have 1 color channels.
   optional bool force_gray = 7 [default = false];
   // Resize policy

@@ -85,7 +85,7 @@ cv::Mat ReadImageToCVMat(const string& filename, const int height,
   cv::Mat cv_img;
   int cv_read_flag = (is_color ? CV_LOAD_IMAGE_COLOR :
     CV_LOAD_IMAGE_GRAYSCALE);
-  cv::Mat cv_img_origin = cv::imread(filename, cv_read_flag);
+  cv::Mat cv_img_origin = cv::imread(filename,cv_read_flag);
   if (!cv_img_origin.data) {
     LOG(ERROR) << "Could not open or find file " << filename;
     return cv_img_origin;
@@ -271,9 +271,11 @@ bool ReadXMLToAnnotatedDatum(const string& labelfile, const int img_height,
     height = img_height;
     width = img_width;
   }
-  LOG_IF(WARNING, height != img_height) << labelfile <<
+  height = img_height;
+  width = img_width;
+  LOG_IF(WARNING, height != img_height) << labelfile <<height<<img_height<<
       " inconsistent image height.";
-  LOG_IF(WARNING, width != img_width) << labelfile <<
+  LOG_IF(WARNING, width != img_width) << labelfile <<width<<img_width<<
       " inconsistent image width.";
   CHECK(width != 0 && height != 0) << labelfile <<
       " no valid image width/height.";
