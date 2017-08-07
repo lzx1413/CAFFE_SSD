@@ -74,16 +74,16 @@ caffe_root = os.getcwd()
 run_soon = True
 # Set true if you want to load from most recently saved snapshot.
 # Otherwise, we will load from the pretrain_model defined below.
-resume_training = True
+resume_training = False
 # If true, Remove old model files.
 remove_old_models = False
 
 # The database file for training data. Created by data/VOC0712/create_data.sh
-train_data = "/mnt/lvmhdd1/dataset/VOC_PASCAL/VOCdevkit/VOC0712/lmdb/VOC0712_trainval_lmdb"
+train_data = "/mnt/lvmhdd1/dataset/VOCBolt/VOCBolt1/lmdb/VOCBolt1_trainval_lmdb"
 # The database file for testing data. Created by data/VOC0712/create_data.sh
-test_data = "/mnt/lvmhdd1/dataset/VOC_PASCAL/VOCdevkit/VOC0712/lmdb/VOC0712_test_lmdb"
+test_data = "/mnt/lvmhdd1/dataset/VOCBolt/VOCBolt1/lmdb/VOCBolt1_test_lmdb"
 # Specify the batch sampler.
-resize_width =512
+resize_width = 512
 resize_height = 512
 resize = "{}x{}".format(resize_width, resize_height)
 batch_sampler = [
@@ -174,7 +174,7 @@ batch_sampler = [
         ]
 train_transform_param = {
         'mirror': True,
-        'mean_value': [104, 117, 123],
+        'mean_value': [128,128,128],
         'resize_param': {
                 'prob': 1,
                 'resize_mode': P.Resize.WARP,
@@ -234,14 +234,14 @@ else:
 # Modify the job name if you want.
 job_name = "SSD_{}".format(resize)
 # The name of the model. Modify it if you want.
-model_name = "VGG_VOC0712_{}".format(job_name)
+model_name = "VGG_Bolt1_{}".format(job_name)
 
 # Directory which stores the model .prototxt file.
-save_dir = "models/VGGNet/VOC0712/{}".format(job_name)
+save_dir = "models/VGGNet/VOCBolt1/{}".format(job_name)
 # Directory which stores the snapshot of models.
-snapshot_dir = "models/VGGNet/VOC0712/{}".format(job_name)
+snapshot_dir = "models/VGGNet/VOCBolt1/{}".format(job_name)
 # Directory which stores the job script and log file.
-job_dir = "jobs/VGGNet/VOC0712/{}".format(job_name)
+job_dir = "jobs/VGGNet/VOCBolt1/{}".format(job_name)
 # Directory which stores the detection results.
 output_result_dir = job_dir+'/predict_ss'
 
@@ -263,7 +263,7 @@ pretrain_model = "models/VGGNet/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
 label_map_file = "data/VOCBolt1/labelmap_bolt.prototxt"
 
 # MultiBoxLoss parameters.
-num_classes = 21
+num_classes = 2
 share_location = True
 background_label_id=0
 train_on_diff_gt = True
@@ -305,18 +305,20 @@ min_dim = 512
 # conv9_2 ==> 1 x 1
 mbox_source_layers = ['conv4_3', 'fc7', 'conv6_2', 'conv7_2', 'conv8_2', 'conv9_2']
 # in percent %
-min_ratio = 20
-max_ratio = 90
+min_ratio = 5
+max_ratio = 20
 step = int(math.floor((max_ratio - min_ratio) / (len(mbox_source_layers) - 2)))
 min_sizes = []
 max_sizes = []
-for ratio in xrange(min_ratio, max_ratio + 1, step):
+for ratio in xrange(min_ratio, max_ratio, step):
   min_sizes.append(min_dim * ratio / 100.)
   max_sizes.append(min_dim * (ratio + step) / 100.)
 min_sizes = [min_dim * 10 / 100.] + min_sizes
 max_sizes = [min_dim * 20 / 100.] + max_sizes
+print(len(min_sizes))
 steps = [8, 16, 32, 64, 100, 300]
-aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
+aspect_ratios = [[1], [2, 3], [2, 3], [2, 3], [2], [2]]
+#aspect_ratios = [[1], [1], [1], [1], [1], [1]]
 # L2 normalize conv4_3.
 normalizations = [20, -1, -1, -1, -1, -1]
 # variance used to encode/decode prior bboxes.
@@ -329,7 +331,7 @@ clip = False
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "0"
+gpus = "1"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
@@ -357,22 +359,22 @@ elif normalization_mode == P.Loss.FULL:
 
 # Evaluate on whole test set.
 num_test_image = 132
-test_batch_size = 8
+test_batch_size = 1
 # Ideally test_batch_size should be divisible by num_test_image,
 # otherwise mAP will be slightly off the true value.
 test_iter = int(math.ceil(float(num_test_image) / test_batch_size))
 
 solver_param = {
     # Train parameters
-    'base_lr': base_lr,
+    'base_lr': 0.0001,
     'weight_decay': 0.0005,
     'lr_policy': "multistep",
-    'stepvalue': [80000, 100000, 120000],
+    'stepvalue': [600, 800],
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 120000,
-    'snapshot': 80000,
+    'max_iter': 1000,
+    'snapshot': 500,
     'display': 10,
     'average_loss': 10,
     'type': "SGD",
@@ -382,7 +384,7 @@ solver_param = {
     'snapshot_after_train': True,
     # Test parameters
     'test_iter': [test_iter],
-    'test_interval': 10000,
+    'test_interval': 1000,
     'eval_type': "detection",
     'ap_version': "11point",
     'test_initialization': False,
