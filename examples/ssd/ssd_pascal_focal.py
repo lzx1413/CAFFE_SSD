@@ -74,7 +74,7 @@ caffe_root = os.getcwd()
 run_soon = True
 # Set true if you want to load from most recently saved snapshot.
 # Otherwise, we will load from the pretrain_model defined below.
-resume_training = True
+resume_training = False
 # If true, Remove old model files.
 remove_old_models = False
 
@@ -232,9 +232,9 @@ else:
     base_lr = 0.00004
 
 # Modify the job name if you want.
-job_name = "SSD_{}".format(resize)
+job_name = "SSD_FOCAL_LOSS_{}".format(resize)
 # The name of the model. Modify it if you want.
-model_name = "VGG_VOC0712_{}".format(job_name)
+model_name = "VGG_VOC0712_FOCALLOSS_{}".format(job_name)
 
 # Directory which stores the model .prototxt file.
 save_dir = "models/VGGNet/VOC0712/{}".format(job_name)
@@ -270,7 +270,8 @@ train_on_diff_gt = True
 normalization_mode = P.Loss.VALID
 code_type = P.PriorBox.CENTER_SIZE
 ignore_cross_boundary_bbox = False
-mining_type = P.MultiBoxLoss.MAX_NEGATIVE
+#mining_type = P.MultiBoxLoss.MAX_NEGATIVE
+mining_type = P.MultiBoxLoss.HARD_EXAMPLE
 neg_pos_ratio = 3.
 loc_weight = (neg_pos_ratio + 1.) / 4.
 multibox_loss_param = {
@@ -364,7 +365,7 @@ test_iter = int(math.ceil(float(num_test_image) / test_batch_size))
 
 solver_param = {
     # Train parameters
-    'base_lr': 0.001,
+    'base_lr': 0.0001,
     'weight_decay': 0.0005,
     'lr_policy': "multistep",
     'stepvalue': [80000, 100000, 120000],
@@ -372,7 +373,7 @@ solver_param = {
     'momentum': 0.9,
     'iter_size': iter_size,
     'max_iter': 120000,
-    'snapshot': 10000,
+    'snapshot': 5000,
     'display': 10,
     'average_loss': 10,
     'type': "SGD",

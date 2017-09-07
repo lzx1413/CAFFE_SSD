@@ -1590,6 +1590,9 @@ void EncodeConfPrediction(const Dtype* conf_data, const int num,
             case MultiBoxLossParameter_ConfLossType_SOFTMAX:
               conf_gt_data[idx] = gt_label;
               break;
+            case MultiBoxLossParameter_ConfLossType_FOCALLOSS:
+              conf_gt_data[idx] = gt_label;
+              break;
             case MultiBoxLossParameter_ConfLossType_LOGISTIC:
               conf_gt_data[idx * num_classes + gt_label] = 1;
               break;
@@ -1614,6 +1617,9 @@ void EncodeConfPrediction(const Dtype* conf_data, const int num,
               conf_pred_data + count * num_classes);
           switch (conf_loss_type) {
             case MultiBoxLossParameter_ConfLossType_SOFTMAX:
+              conf_gt_data[count] = background_label_id;
+              break;
+            case MultiBoxLossParameter_ConfLossType_FOCALLOSS:
               conf_gt_data[count] = background_label_id;
               break;
             case MultiBoxLossParameter_ConfLossType_LOGISTIC:
