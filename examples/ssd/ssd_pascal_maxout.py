@@ -232,10 +232,10 @@ else:
     base_lr = 0.00004
 
 # Modify the job name if you want.
-job_name = "SSD_{}".format(resize)
+job_name = "SSD_MaxOut_3{}".format(resize)
 # The name of the model. Modify it if you want.
 model_name = "VGG_VOC0712_{}".format(job_name)
-date = '0922'
+date = '0923'
 # Directory which stores the model .prototxt file.
 save_dir = "models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the snapshot of models.
@@ -329,7 +329,7 @@ clip = False
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "0,1,2,3"
+gpus = "0,1"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
@@ -442,7 +442,7 @@ mbox_layers = CreateMultiBoxHead(net, data_layer='data', from_layers=mbox_source
         use_batchnorm=use_batchnorm, min_sizes=min_sizes, max_sizes=max_sizes,
         aspect_ratios=aspect_ratios, steps=steps, normalizations=normalizations,
         num_classes=num_classes, share_location=share_location, flip=flip, clip=clip,
-        prior_variance=prior_variance, kernel_size=3, pad=1, lr_mult=lr_mult)
+        prior_variance=prior_variance, kernel_size=3, pad=1, lr_mult=lr_mult,max_out = 9)
 
 # Create the MultiBoxLossLayer.
 name = "mbox_loss"
@@ -471,7 +471,7 @@ mbox_layers = CreateMultiBoxHead(net, data_layer='data', from_layers=mbox_source
         use_batchnorm=use_batchnorm, min_sizes=min_sizes, max_sizes=max_sizes,
         aspect_ratios=aspect_ratios, steps=steps, normalizations=normalizations,
         num_classes=num_classes, share_location=share_location, flip=flip, clip=clip,
-        prior_variance=prior_variance, kernel_size=3, pad=1, lr_mult=lr_mult)
+        prior_variance=prior_variance, kernel_size=3, pad=1, lr_mult=lr_mult,max_out = 9)
 
 conf_name = "mbox_conf"
 if multibox_loss_param["conf_loss_type"] == P.MultiBoxLoss.SOFTMAX \
@@ -555,15 +555,17 @@ if remove_old_models:
         os.remove("{}/{}".format(snapshot_dir, file))
 
 # Create job file.
+import time
+timestamp = time.strftime('%Y%m%d%H%M%S')
 with open(job_file, 'w') as f:
   f.write('cd {}\n'.format(caffe_root))
   f.write('./build/tools/caffe train \\\n')
   f.write('--solver="{}" \\\n'.format(solver_file))
   f.write(train_src_param)
   if solver_param['solver_mode'] == P.Solver.GPU:
-    f.write('--gpu {} 2>&1 | tee {}/{}.log\n'.format(gpus, job_dir, model_name))
+    f.write('--gpu {} 2>&1 | tee {}/{}_{}.log\n'.format(gpus, job_dir, model_name,timestamp))
   else:
-    f.write('2>&1 | tee {}/{}.log\n'.format(job_dir, model_name))
+    f.write('2>&1 | tee {}/{}_{}.log\n'.format(job_dir, model_name,timestamp))
 
 # Copy the python script to job_dir.
 py_file = os.path.abspath(__file__)

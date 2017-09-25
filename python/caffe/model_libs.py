@@ -26,7 +26,7 @@ def UnpackVariable(var, num):
       for i in xrange(0, num):
         ret.append(var)
     return ret
-
+  
 def ConvBNLayer(net, from_layer, out_layer, use_bn, use_relu, num_output,
     kernel_size, pad, stride, dilation=1, use_scale=True, lr_mult=1,
     conv_prefix='', conv_postfix='', bn_prefix='', bn_postfix='_bn',
@@ -794,7 +794,7 @@ def CreateMultiBoxHead(net, data_layer="data", num_classes=[], from_layers=[],
         use_scale=True, min_sizes=[], max_sizes=[], prior_variance = [0.1],
         aspect_ratios=[], steps=[], img_height=0, img_width=0, share_location=True,
         flip=True, clip=True, offset=0.5, inter_layer_depth=[], kernel_size=1, pad=0,
-        conf_postfix='', loc_postfix='', **bn_param):
+        conf_postfix='', loc_postfix='',max_out= 0, **bn_param):
     assert num_classes, "must provide num_classes"
     assert num_classes > 0, "num_classes must be positive number"
     if normalizations:
@@ -866,7 +866,23 @@ def CreateMultiBoxHead(net, data_layer="data", num_classes=[], from_layers=[],
         num_loc_output = num_priors_per_location * 4;
         if not share_location:
             num_loc_output *= num_classes
-        ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False, lr_mult=lr_mult,
+        if max_out>0:
+          slice_point = []
+          for i in xrange(max_out-1):
+            slice_point.append(num_loc_output*(i+1))
+          ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False, lr_mult=lr_mult,
+            num_output=num_loc_output*max_out, kernel_size=kernel_size, pad=pad, stride=1, **bn_param)
+          net[name+'_slice_0'],net[name+'_slice_1'],net[name+'_slice_2'],net[name+'_slice_3'],\
+          net[name+'_slice_4'],net[name+'_slice_5'] ,\
+          net[name+'_slice_6'],net[name+'_slice_7'] ,\
+          net[name+'_slice_8'] = L.Slice(net[name],slice_param={'axis':1,'slice_point':slice_point},ntop = 9)
+          net[name+'_max'] = L.Eltwise(net[name+'_slice_0'],net[name+'_slice_1'],net[name+'_slice_2'],net[name+'_slice_3'],\
+          net[name+'_slice_4'],net[name+'_slice_5'] ,\
+          net[name+'_slice_6'],net[name+'_slice_7'] ,\
+          net[name+'_slice_8'],eltwise_param = {'operation':2})
+          name = name+'_max'
+        else:
+          ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False, lr_mult=lr_mult,
             num_output=num_loc_output, kernel_size=kernel_size, pad=pad, stride=1, **bn_param)
         permute_name = "{}_perm".format(name)
         net[permute_name] = L.Permute(net[name], order=[0, 2, 3, 1])
@@ -877,7 +893,23 @@ def CreateMultiBoxHead(net, data_layer="data", num_classes=[], from_layers=[],
         # Create confidence prediction layer.
         name = "{}_mbox_conf{}".format(from_layer, conf_postfix)
         num_conf_output = num_priors_per_location * num_classes;
-        ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False, lr_mult=lr_mult,
+        if max_out>0:
+          ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False, lr_mult=lr_mult,
+            num_output=num_conf_output*max_out, kernel_size=kernel_size, pad=pad, stride=1, **bn_param)
+          slice_point = []
+          for i in xrange(max_out-1):
+            slice_point.append(num_conf_output*(i+1))
+          net[name+'_slice_0'],net[name+'_slice_1'],net[name+'_slice_2'],net[name+'_slice_3'],\
+          net[name+'_slice_4'],net[name+'_slice_5'] ,\
+          net[name+'_slice_6'],net[name+'_slice_7'] ,\
+          net[name+'_slice_8'] = L.Slice(net[name],slice_param={'axis':1,'slice_point':slice_point},ntop = 9)
+          net[name+'_max'] = L.Eltwise(net[name+'_slice_0'],net[name+'_slice_1'],net[name+'_slice_2'],net[name+'_slice_3'],\
+          net[name+'_slice_4'],net[name+'_slice_5'] ,\
+          net[name+'_slice_6'],net[name+'_slice_7'] ,\
+          net[name+'_slice_8'],eltwise_param = {'operation':2})
+          name = name+'_max'
+        else:
+          ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False, lr_mult=lr_mult,
             num_output=num_conf_output, kernel_size=kernel_size, pad=pad, stride=1, **bn_param)
         permute_name = "{}_perm".format(name)
         net[permute_name] = L.Permute(net[name], order=[0, 2, 3, 1])
