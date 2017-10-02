@@ -8,6 +8,9 @@ import subprocess
 import sys
 
 import caffe
+from caffe import layers as L
+from caffe import params as P
+from caffe.proto import caffe_pb2
 from caffe.model_libs import *
 from google.protobuf import text_format
 # Add extra layers on top of a "base" network (e.g. VGGNet or Inception).
@@ -17,29 +20,47 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     # Add additional convolutional layers.
     # 19 x 19
     from_layer = net.keys()[-1]
+    net['conv3_3_ds'] = L.Pooling(net['conv3_3'], pool=P.Pooling.MAX, pad=0, kernel_size=2, stride=2)
+   
+    ConvBNLayer(net, "conv4_3",  "conv4_3_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
+        lr_mult=lr_mult)
+   
+
 
     # TODO(weiliu89): Construct the name using the last layer to avoid duplication.
     # 10 x 10
     out_layer = "conv6_1"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 1, 0, 1,
-        lr_mult=lr_mult)
+        lr_mult=1)
 
     from_layer = out_layer
     out_layer = "conv6_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 512, 3, 1, 2,
-        lr_mult=lr_mult)
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 512, 3, 1, 1,
+        lr_mult=1)
 
     # 5 x 5
     from_layer = out_layer
     out_layer = "conv7_1"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=lr_mult)
+      lr_mult=1)
 
     from_layer = out_layer
     out_layer = "conv7_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,
-      lr_mult=lr_mult)
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,lr_mult = lr_mult)
+    ConvBNLayer(net, "fc7",  "fc7_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
+        lr_mult=lr_mult)
+    net['fc7_us'] = L.Interp(net['fc7_reduce'],interp_param={'height':38,'width':38})
+    net['conv7_2_us'] = L.Interp(net['conv7_2'],interp_param={'height':38,'width':38})   
 
+    net['fea_concat'] = L.Concat(net['conv3_3_ds'],net['conv4_3_reduce'],net['fc7_us'],net['conv7_2_us'],axis = 1)
+    net['fea_concat_bn'] = L.BatchNorm(net['fea_concat'],in_place=True)
+    ConvBNLayer(net,'fea_concat_bn','fea_concat_bn_ds_1',use_batchnorm,use_relu,256,3,1,1,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_1','fea_concat_bn_ds_2',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_2','fea_concat_bn_ds_4',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_4','fea_concat_bn_ds_8',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_8','fea_concat_bn_ds_16',use_batchnorm,use_relu,256,3,0,1,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_16','fea_concat_bn_ds_32',use_batchnorm,use_relu,256,3,0,1,lr_mult=lr_mult)
+    '''
     # 3 x 3
     from_layer = out_layer
     out_layer = "conv8_1"
@@ -61,8 +82,11 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     out_layer = "conv9_2"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 0, 1,
       lr_mult=lr_mult)
-
+    '''
     return net
+
+
+ 
 
 
 ### Modify the following parameters accordingly ###
@@ -229,13 +253,13 @@ if use_batchnorm:
     base_lr = 0.0004
 else:
     # A learning rate for batch_size = 1, num_gpus = 1.
-    base_lr = 0.00004
+    base_lr = 0.00004/10
 
 # Modify the job name if you want.
-job_name = "SSD_RMSprop_{}".format(resize)
+job_name = "SSD_FPN_NP_{}".format(resize)
 # The name of the model. Modify it if you want.
 model_name = "VGG_VOC0712_{}".format(job_name)
-date = '0922'
+date = '1002'
 # Directory which stores the model .prototxt file.
 save_dir = "models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the snapshot of models.
@@ -259,6 +283,7 @@ job_file = "{}/{}.sh".format(job_dir, model_name)
 name_size_file = "data/VOC0712/test_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
 pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
+#pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGGNet/SSD_300x300/0922/VGG_VOC0712_SSD_300x300_iter_120000.caffemodel"
 # Stores LabelMapItem.
 label_map_file = "data/VOC0712/labelmap_voc.prototxt"
 
@@ -303,9 +328,10 @@ min_dim = 300
 # conv7_2 ==> 5 x 5
 # conv8_2 ==> 3 x 3
 # conv9_2 ==> 1 x 1
-mbox_source_layers = ['conv4_3', 'fc7', 'conv6_2', 'conv7_2', 'conv8_2', 'conv9_2']
+#mbox_source_layers = ['conv4_3', 'fc7', 'conv6_2', 'conv7_2', 'conv8_2', 'conv9_2']
+mbox_source_layers = ['fea_concat_bn_ds_1','fea_concat_bn_ds_2','fea_concat_bn_ds_4','fea_concat_bn_ds_8','fea_concat_bn_ds_16','fea_concat_bn_ds_32']
 # in percent %
-min_ratio = 20
+min_ratio = 10
 max_ratio = 90
 step = int(math.floor((max_ratio - min_ratio) / (len(mbox_source_layers) - 2)))
 min_sizes = []
@@ -313,12 +339,14 @@ max_sizes = []
 for ratio in xrange(min_ratio, max_ratio + 1, step):
   min_sizes.append(min_dim * ratio / 100.)
   max_sizes.append(min_dim * (ratio + step) / 100.)
+
 min_sizes = [min_dim * 10 / 100.] + min_sizes
 max_sizes = [min_dim * 20 / 100.] + max_sizes
-steps = [8, 16, 32, 64, 100, 300]
-aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
+#steps = [8,16,32,64,100,300]
+steps = []
+aspect_ratios = [[2,3],[2,3],[2,3],[2,3],[2,3],[2,3]]
 # L2 normalize conv4_3.
-normalizations = [20, -1, -1, -1, -1, -1]
+normalizations = [-1,-1,-1,-1,-1,-1]
 # variance used to encode/decode prior bboxes.
 if code_type == P.PriorBox.CENTER_SIZE:
   prior_variance = [0.1, 0.1, 0.2, 0.2]
@@ -329,7 +357,7 @@ clip = False
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "2,3"
+gpus = "0,1"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
@@ -364,18 +392,18 @@ test_iter = int(math.ceil(float(num_test_image) / test_batch_size))
 
 solver_param = {
     # Train parameters
-    'base_lr': 0.0005,
-    'weight_decay': 0.00005,
+    'base_lr': 0.001,
+    'weight_decay': 0.0005,
     'lr_policy': "multistep",
-    'stepvalue': [80000, 100000, 120000],
-    'gamma': 0.5,
-    #'momentum': 0.9,
+    'stepvalue': [40000, 60000, 80000,100000],
+    'gamma': 0.1,
+    'momentum': 0.9,
     'iter_size': iter_size,
     'max_iter': 120000,
     'snapshot': 10000,
     'display': 10,
     'average_loss': 10,
-    'type': "RMSProp",
+    'type': "SGD",
     'solver_mode': solver_mode,
     'device_id': device_id,
     'debug_info': False,
