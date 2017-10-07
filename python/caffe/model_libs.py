@@ -788,6 +788,79 @@ def InceptionV3Body(net, from_layer, output_pred=False, **bn_param):
     net.softmax_prob = L.Softmax(net.softmax)
 
   return net
+#mobile net
+def ConvDwPw(net, from_layer,out_layer, num_output_dw,num_output_pw, stride,lr_mult,use_global_stats = True):
+    bn_lr_mult=0
+    name = out_layer
+    kwargs = {
+      'param': [dict(lr_mult=lr_mult, decay_mult=1)],
+      'weight_filler': dict(type='gaussian', std=0.01),
+      'bias_term': False,
+    }
+    bn_kwargs = {
+    'param': [
+        dict(lr_mult=0, decay_mult=0),
+        dict(lr_mult=0, decay_mult=0),
+        dict(lr_mult=0, decay_mult=0)],
+    'use_global_stats': use_global_stats,
+    }
+    sb_kwargs = {
+          'bias_term': True,
+          'param': [
+              dict(lr_mult=bn_lr_mult, decay_mult=0),
+              dict(lr_mult=bn_lr_mult, decay_mult=0)],
+          'filler': dict(type='constant', value=1.0),
+          'bias_filler': dict(type='constant', value=0.0),
+    }
+    net[name+'/dw'] = L.Convolution(net[from_layer],num_output = num_output_dw,kernel_size = 3,pad = 1,group = num_output_dw, stride = stride,**kwargs)
+    net[name+'/dw/bn'] = L.BatchNorm(net[name+'/dw'],in_place=True,**bn_kwargs)
+    net[name+'/dw/scale']=L.Scale(net[name+'/dw'],in_place=True,**sb_kwargs)
+    net[name+'/dw/relu'] = L.ReLU(net[name+'/dw'],in_place=True)
+    net[name] = L.Convolution(net[name+'/dw'],num_output = num_output_pw,kernel_size = 1,pad = 0,stride = 1,**kwargs)
+    net[name+'/bn'] = L.BatchNorm(net[name],in_place=True,**bn_kwargs)
+    net[name+'/scale']=L.Scale(net[name],in_place=True,**sb_kwargs)
+    net[name+'/relu'] = L.ReLU(net[name],in_place=True)
+def MobileNetBody(net,from_layer,lr_mult = 1,use_global_stats=True):
+    bn_lr_mult=0
+    kwargs = {
+      'param': [dict(lr_mult=lr_mult, decay_mult=1)],
+      'weight_filler': dict(type='gaussian', std=0.01),
+      'bias_term': False,
+    }
+    bn_kwargs = {
+      'param': [
+        dict(lr_mult=0, decay_mult=0),
+        dict(lr_mult=0, decay_mult=0),
+        dict(lr_mult=0, decay_mult=0)],
+      'use_global_stats': use_global_stats,
+    }
+    sb_kwargs = {
+          'bias_term': True,
+          'param': [
+              dict(lr_mult=bn_lr_mult, decay_mult=0),
+              dict(lr_mult=bn_lr_mult, decay_mult=0)],
+          'filler': dict(type='constant', value=1.0),
+          'bias_filler': dict(type='constant', value=0.0),
+    }
+    net['conv0'] = L.Convolution(net[from_layer],num_output = 32,kernel_size = 3,stride = 2,pad = 1,**kwargs)
+    net['conv0/bn'] = L.BatchNorm(net['conv0'],in_place=True,**bn_kwargs)
+    net['conv0/scale'] = L.Scale(net['conv0'],in_place = True,**sb_kwargs)
+    net['conv0/relu'] = L.ReLU(net['conv0'],in_place = True)
+    ConvDwPw(net,from_layer='conv0',lr_mult=lr_mult,out_layer='conv1',num_output_dw=32,num_output_pw=64,stride = 1)
+    ConvDwPw(net,from_layer='conv1',lr_mult=lr_mult,out_layer='conv2',num_output_dw=64,num_output_pw=128,stride = 2)
+    ConvDwPw(net,from_layer='conv2',lr_mult=lr_mult,out_layer='conv3',num_output_dw=128,num_output_pw=128,stride = 1)
+    ConvDwPw(net,from_layer='conv3',lr_mult=lr_mult,out_layer='conv4',num_output_dw=128,num_output_pw=256,stride = 2)
+    ConvDwPw(net,from_layer='conv4',lr_mult=lr_mult,out_layer='conv5',num_output_dw=256,num_output_pw=256,stride = 1)
+    ConvDwPw(net,from_layer='conv5',lr_mult=lr_mult,out_layer='conv6',num_output_dw=256,num_output_pw=512,stride = 2)
+    ConvDwPw(net,from_layer='conv6',lr_mult=lr_mult,out_layer='conv7',num_output_dw=512,num_output_pw=512,stride = 1)
+    ConvDwPw(net,from_layer='conv7',lr_mult=lr_mult,out_layer='conv8',num_output_dw=512,num_output_pw=512,stride = 1)
+    ConvDwPw(net,from_layer='conv8',lr_mult=lr_mult,out_layer='conv9',num_output_dw=512,num_output_pw=512,stride = 1)
+    ConvDwPw(net,from_layer='conv9',lr_mult=lr_mult,out_layer='conv10',num_output_dw=512,num_output_pw=512,stride = 1)
+    ConvDwPw(net,from_layer='conv10',lr_mult=lr_mult,out_layer='conv11',num_output_dw=512,num_output_pw=512,stride = 1)
+    ConvDwPw(net,from_layer='conv11',lr_mult=lr_mult,out_layer='conv12',num_output_dw=512,num_output_pw=1024,stride = 2)
+    ConvDwPw(net,from_layer='conv12',lr_mult=lr_mult,out_layer='conv13',num_output_dw=1024,num_output_pw=1024,stride = 1)
+
+
 
 def CreateMultiBoxHead(net, data_layer="data", num_classes=[], from_layers=[],
         use_objectness=False, normalizations=[], use_batchnorm=True, lr_mult=1,
