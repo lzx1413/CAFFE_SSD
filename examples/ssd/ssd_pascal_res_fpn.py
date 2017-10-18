@@ -35,7 +35,7 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
 
     from_layer = out_layer
     out_layer = "conv6_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 512, 3, 1, 1,
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 512, 3, 1, 2,
         lr_mult=1)
 
     # 5 x 5
@@ -50,25 +50,34 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     ConvBNLayer(net, "fc7",  "fc7_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
         lr_mult=lr_mult)
     net['fc7_us'] = L.Interp(net['fc7_reduce'],interp_param={'height':38,'width':38})
-    net['conv7_2_us'] = L.Interp(net['conv7_2'],interp_param={'height':38,'width':38})   
+    net['conv6_2_us'] = L.Interp(net['conv6_2'],interp_param={'height':38,'width':38})   
 
-    net['fea_concat'] = L.Concat(net['conv3_3_ds'],net['conv4_3_reduce'],net['fc7_us'],net['conv7_2_us'],axis = 1)
+    net['fea_concat'] = L.Concat(net['conv3_3_ds'],net['conv4_3_reduce'],net['fc7_us'],net['conv6_2_us'],axis = 1)
     net['fea_concat_bn'] = L.BatchNorm(net['fea_concat'],in_place=True)
-    ConvBNLayer(net,'fea_concat_bn','fea_concat_bn_ds_2',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    #38
+    ConvBNLayer(net,'fea_concat_bn','fea_concat_bn_ds_1',use_batchnorm,use_relu,256,3,1,1,lr_mult=lr_mult)
+    #19
+    ConvBNLayer(net,'fea_concat_bn_ds_1','fea_concat_bn_ds_2',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    #10
     ConvBNLayer(net,'fea_concat_bn_ds_2','fea_concat_bn_ds_4',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
-    ConvBNLayer(net,'fea_concat_bn_ds_4','fea_concat_bn_ds_8',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    #5
+    #ConvBNLayer(net,'fea_concat_bn_ds_4','fea_concat_bn_ds_8',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    #3
+    #ConvBNLayer(net,'fea_concat_bn_ds_8','fea_concat_bn_ds_16',use_batchnorm,use_relu,256,3,0,1,lr_mult=lr_mult)
+    #1
+    #ConvBNLayer(net,'fea_concat_bn_ds_16','fea_concat_bn_ds_32',use_batchnorm,use_relu,256,3,0,1,lr_mult=lr_mult)
     # 3 x 3
     from_layer = "conv7_2"
     out_layer = "conv8_1"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=lr_mult)
+      lr_mult=lr_mult)                                                                                                                                                                      
 
     from_layer = out_layer
     out_layer = "conv8_2"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 0, 1,
       lr_mult=lr_mult)
 
-    # 1 x 1
+    # 3 x 3
     from_layer = out_layer
     out_layer = "conv9_1"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
@@ -78,6 +87,7 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     out_layer = "conv9_2"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 0, 1,
       lr_mult=lr_mult)
+    net
     return net
 
 
@@ -93,7 +103,7 @@ caffe_root = os.getcwd()
 run_soon = True
 # Set true if you want to load from most recently saved snapshot.
 # Otherwise, we will load from the pretrain_model defined below.
-resume_training = True
+resume_training = False
 # If true, Remove old model files.
 remove_old_models = False
 
@@ -242,7 +252,7 @@ test_transform_param = {
 # If true, use batch norm for all newly added layers.
 # Currently only the non batch norm version has been tested.
 use_batchnorm = False
-lr_mult = 5
+lr_mult = 1
 # Use different initial learning rate.
 if use_batchnorm:
     base_lr = 0.0004
@@ -254,7 +264,7 @@ else:
 job_name = "SSD_FPN_RES{}".format(resize)
 # The name of the model. Modify it if you want.
 model_name = "VGG_VOC0712_{}".format(job_name)
-date = '0927'
+date = '1002'
 # Directory which stores the model .prototxt file.
 save_dir = "models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the snapshot of models.
@@ -277,8 +287,8 @@ job_file = "{}/{}.sh".format(job_dir, model_name)
 # Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
 name_size_file = "data/VOC0712/test_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
-#pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
-pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGGNet/SSD_300x300/0922/VGG_VOC0712_SSD_300x300_iter_120000.caffemodel"
+pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
+#pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGGNet/SSD_300x300/0922/VGG_VOC0712_SSD_300x300_iter_120000.caffemodel"
 # Stores LabelMapItem.
 label_map_file = "data/VOC0712/labelmap_voc.prototxt"
 
@@ -324,9 +334,9 @@ min_dim = 300
 # conv8_2 ==> 3 x 3
 # conv9_2 ==> 1 x 1
 #mbox_source_layers = ['conv4_3', 'fc7', 'conv6_2', 'conv7_2', 'conv8_2', 'conv9_2']
-mbox_source_layers = ['fea_concat_bn','fea_concat_bn_ds_2','fea_concat_bn_ds_4','fea_concat_bn_ds_8','conv8_2','conv9_2']
+mbox_source_layers = ['fea_concat_bn_ds_1','fea_concat_bn_ds_2','fea_concat_bn_ds_4','conv7_2','conv8_2','conv9_2']
 # in percent %
-min_ratio = 20
+min_ratio = 10
 max_ratio = 90
 step = int(math.floor((max_ratio - min_ratio) / (len(mbox_source_layers) - 2)))
 min_sizes = []
@@ -339,7 +349,7 @@ min_sizes = [min_dim * 10 / 100.] + min_sizes
 max_sizes = [min_dim * 20 / 100.] + max_sizes
 #steps = [8,16,32,64,100,300]
 steps = []
-aspect_ratios = [[2],[2,3],[2,3],[2,3],[2],[2]]
+aspect_ratios = [[2,3],[2,3],[2,3],[2,3],[2,3],[2,3]]
 # L2 normalize conv4_3.
 normalizations = [-1,-1,-1,-1,-1,-1]
 # variance used to encode/decode prior bboxes.
@@ -352,7 +362,7 @@ clip = False
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "0,1"
+gpus = "2,3"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
@@ -387,14 +397,14 @@ test_iter = int(math.ceil(float(num_test_image) / test_batch_size))
 
 solver_param = {
     # Train parameters
-    'base_lr': 0.0002,
+    'base_lr': 0.001,
     'weight_decay': 0.0005,
     'lr_policy': "multistep",
-    'stepvalue': [40000, 60000, 80000],
+    'stepvalue': [80000,100000,120000],
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 80000,
+    'max_iter': 120000,
     'snapshot': 10000,
     'display': 10,
     'average_loss': 10,

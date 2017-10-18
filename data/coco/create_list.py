@@ -11,11 +11,12 @@ CURDIR = os.path.dirname(os.path.realpath(__file__))
 # If true, re-create all list files.
 redo = True
 # The root directory which holds all information of the dataset.
-data_dir = "{}/data/coco".format(HOMEDIR)
+#data_dir = "{}/data/coco".format(HOMEDIR)
+data_dir = "/home/foto1/Database/MSCOCO"
 # The directory name which holds the image sets.
 imgset_dir = "ImageSets"
 # The direcotry which contains the images.
-img_dir = "images"
+img_dir = ""
 img_ext = "jpg"
 # The directory which contains the annotations.
 anno_dir = "Annotations"

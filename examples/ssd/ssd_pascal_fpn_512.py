@@ -15,10 +15,8 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     use_relu = True
     # 32 x 32
     from_layer = net.keys()[-1]
-    net['conv3_3_ds'] = L.Pooling(net['conv3_3'], pool=P.Pooling.MAX, pad=0, kernel_size=2, stride=2)
    
-    ConvBNLayer(net, "conv4_3",  "conv4_3_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
-        lr_mult=lr_mult)
+
    
 
 
@@ -36,10 +34,47 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     out_layer = "conv7_1"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
       lr_mult=1)
-
     from_layer = out_layer
     out_layer = "conv7_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,lr_mult = lr_mult)
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,lr_mult = 1)
+
+     # 4 x 4
+    '''
+    from_layer = out_layer
+    out_layer = "conv8_1"
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
+      lr_mult=1)
+
+    from_layer = out_layer
+    out_layer = "conv8_2"
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,
+      lr_mult=1)
+
+    # 2 x 2
+    from_layer = out_layer
+    out_layer = "conv9_1"
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
+      lr_mult=1)
+
+    from_layer = out_layer
+    out_layer = "conv9_2"
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,
+      lr_mult=1)
+
+    # 1 x 1
+    from_layer = out_layer
+    out_layer = "conv10_1"
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
+      lr_mult=1)
+
+    from_layer = out_layer
+    out_layer = "conv10_2"
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 4, 1, 1,
+      lr_mult=1)
+    '''
+    net['conv3_3_ds'] = L.Pooling(net['conv3_3'], pool=P.Pooling.MAX, pad=0, kernel_size=2, stride=2)
+    ConvBNLayer(net, "conv4_3",  "conv4_3_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
+        lr_mult=lr_mult)
     ConvBNLayer(net, "fc7",  "fc7_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
         lr_mult=lr_mult)
     net['fc7_us'] = L.Interp(net['fc7_reduce'],interp_param={'height':64,'width':64})
@@ -47,8 +82,10 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
 
     net['fea_concat'] = L.Concat(net['conv3_3_ds'],net['conv4_3_reduce'],net['fc7_us'],net['conv7_2_us'],axis = 1)
     net['fea_concat_bn'] = L.BatchNorm(net['fea_concat'],in_place=True)
+    #64
+    ConvBNLayer(net,'fea_concat_bn','fea_concat_bn_ds_1',use_batchnorm,use_relu,512,3,1,1,lr_mult=lr_mult)
     #32
-    ConvBNLayer(net,'fea_concat_bn','fea_concat_bn_ds_2',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_1','fea_concat_bn_ds_2',use_batchnorm,use_relu,512,3,1,2,lr_mult=lr_mult)
     #16
     ConvBNLayer(net,'fea_concat_bn_ds_2','fea_concat_bn_ds_4',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
     #8
@@ -221,7 +258,7 @@ test_transform_param = {
 # If true, use batch norm for all newly added layers.
 # Currently only the non batch norm version has been tested.
 use_batchnorm = False
-lr_mult = 1
+lr_mult = 2
 # Use different initial learning rate.
 if use_batchnorm:
     base_lr = 0.0004
@@ -230,11 +267,11 @@ else:
     base_lr = 0.00004
 
 # Modify the job name if you want.
-job_name = "SSD_FPN_{}".format(resize)
+job_name = "SSD_FPN_WO_{}".format(resize)
 # The name of the model. Modify it if you want.
 model_name = "VGG_VOC0712_{}".format(job_name)
 
-date = '1001'
+date = '1014'
 # Directory which stores the model .prototxt file.
 save_dir = "models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the snapshot of models.
@@ -257,6 +294,7 @@ job_file = "{}/{}.sh".format(job_dir, model_name)
 # Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
 name_size_file = "data/VOC0712/test_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
+#pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/models/VGGNet/VOC0712/SSD_512x512/VGG_VOC0712_SSD_512x512_iter_120000.caffemodel"
 pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/models/VGGNet/VOC0712/SSD_512x512/VGG_VOC0712_SSD_512x512_iter_120000.caffemodel"
 # Stores LabelMapItem.
 label_map_file = "data/VOC0712/labelmap_voc.prototxt"
@@ -303,7 +341,8 @@ min_dim = 512
 # conv8_2 ==> 4 x 4
 # conv9_2 ==> 2 x 2
 # conv10_2 ==> 1 x 1
-mbox_source_layers = ['fea_concat_bn','fea_concat_bn_ds_2','fea_concat_bn_ds_4','fea_concat_bn_ds_8','fea_concat_bn_ds_16','fea_concat_bn_ds_32','fea_concat_bn_ds_64']
+mbox_source_layers = ['fea_concat_bn_ds_1','fea_concat_bn_ds_2','fea_concat_bn_ds_4','fea_concat_bn_ds_8','fea_concat_bn_ds_16','fea_concat_bn_ds_32','fea_concat_bn_ds_64']
+#mbox_source_layers = ['fea_concat_bn_ds_1','fea_concat_bn_ds_2','fea_concat_bn_ds_4','fea_concat_bn_ds_8','fea_concat_bn_ds_16','fea_concat_bn_ds_32','fea_concat_bn_ds_64']
 # in percent %
 min_ratio = 15
 max_ratio = 90
@@ -315,9 +354,12 @@ for ratio in xrange(min_ratio, max_ratio + 1, step):
   max_sizes.append(min_dim * (ratio + step) / 100.)
 min_sizes = [min_dim * 7 / 100.] + min_sizes
 max_sizes = [min_dim * 15 / 100.] + max_sizes
+#min_sizes = min_sizes+min_sizes
+#max_sizes = max_sizes+max_sizes
 #steps = [8, 16, 32, 64, 128, 256, 512]
 steps = []
 aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2], [2]]
+#aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2], [2],]
 # L2 normalize conv4_3.
 normalizations = [-1, -1, -1, -1, -1, -1, -1]
 # variance used to encode/decode prior bboxes.
@@ -330,12 +372,12 @@ clip = False
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "0,1"
+gpus = "0,1,2,3"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
 # Divide the mini-batch to different GPUs.
-batch_size = 16
+batch_size = 32
 accum_batch_size = 32
 iter_size = accum_batch_size / batch_size
 solver_mode = P.Solver.CPU

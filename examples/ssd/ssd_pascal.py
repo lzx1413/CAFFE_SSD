@@ -232,10 +232,10 @@ else:
     base_lr = 0.00004
 
 # Modify the job name if you want.
-job_name = "SSD_RMSprop_{}".format(resize)
+job_name = "SSD_FT_{}".format(resize)
 # The name of the model. Modify it if you want.
 model_name = "VGG_VOC0712_{}".format(job_name)
-date = '0922'
+date = '1014'
 # Directory which stores the model .prototxt file.
 save_dir = "models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the snapshot of models.
@@ -258,7 +258,8 @@ job_file = "{}/{}.sh".format(job_dir, model_name)
 # Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
 name_size_file = "data/VOC0712/test_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
-pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
+#pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
+pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGG_VOC0712_SSD_300x300_iter_120000.caffemodel"
 # Stores LabelMapItem.
 label_map_file = "data/VOC0712/labelmap_voc.prototxt"
 
@@ -363,19 +364,18 @@ test_batch_size = 8
 test_iter = int(math.ceil(float(num_test_image) / test_batch_size))
 
 solver_param = {
-    # Train parameters
     'base_lr': 0.0005,
-    'weight_decay': 0.00005,
+    'weight_decay': 0.0005,
     'lr_policy': "multistep",
-    'stepvalue': [80000, 100000, 120000],
-    'gamma': 0.5,
-    #'momentum': 0.9,
+    'stepvalue': [40000, 60000, 80000],
+    'gamma': 0.1,
+    'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 120000,
+    'max_iter': 80000,
     'snapshot': 10000,
     'display': 10,
     'average_loss': 10,
-    'type': "RMSProp",
+    'type': "SGD",
     'solver_mode': solver_mode,
     'device_id': device_id,
     'debug_info': False,
