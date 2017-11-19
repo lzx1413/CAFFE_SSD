@@ -796,6 +796,7 @@ def ConvDwPw(net, from_layer,out_layer, num_output_dw,num_output_pw, stride,lr_m
       'param': [dict(lr_mult=lr_mult, decay_mult=1)],
       'weight_filler': dict(type='gaussian', std=0.01),
       'bias_term': False,
+      'engine': 1,
     }
     bn_kwargs = {
     'param': [
@@ -816,6 +817,11 @@ def ConvDwPw(net, from_layer,out_layer, num_output_dw,num_output_pw, stride,lr_m
     net[name+'/dw/bn'] = L.BatchNorm(net[name+'/dw'],in_place=True,**bn_kwargs)
     net[name+'/dw/scale']=L.Scale(net[name+'/dw'],in_place=True,**sb_kwargs)
     net[name+'/dw/relu'] = L.ReLU(net[name+'/dw'],in_place=True)
+    kwargs = {
+      'param': [dict(lr_mult=lr_mult, decay_mult=1)],
+      'weight_filler': dict(type='gaussian', std=0.01),
+      'bias_term': False,
+    }
     net[name] = L.Convolution(net[name+'/dw'],num_output = num_output_pw,kernel_size = 1,pad = 0,stride = 1,**kwargs)
     net[name+'/bn'] = L.BatchNorm(net[name],in_place=True,**bn_kwargs)
     net[name+'/scale']=L.Scale(net[name],in_place=True,**sb_kwargs)
@@ -851,10 +857,11 @@ def MobileNetBody(net,from_layer,lr_mult = 1,use_global_stats=True):
     ConvDwPw(net,from_layer='conv2',lr_mult=lr_mult,out_layer='conv3',num_output_dw=128,num_output_pw=128,stride = 1)
     ConvDwPw(net,from_layer='conv3',lr_mult=lr_mult,out_layer='conv4',num_output_dw=128,num_output_pw=256,stride = 2)
     ConvDwPw(net,from_layer='conv4',lr_mult=lr_mult,out_layer='conv5',num_output_dw=256,num_output_pw=256,stride = 1)
-    ConvDwPw(net,from_layer='conv5',lr_mult=lr_mult,out_layer='conv6',num_output_dw=256,num_output_pw=512,stride = 2)
+    ConvDwPw(net,from_layer='conv5',lr_mult=lr_mult,out_layer='conv6',num_output_dw=256,num_output_pw=512,stride = 1)
     ConvDwPw(net,from_layer='conv6',lr_mult=lr_mult,out_layer='conv7',num_output_dw=512,num_output_pw=512,stride = 1)
     ConvDwPw(net,from_layer='conv7',lr_mult=lr_mult,out_layer='conv8',num_output_dw=512,num_output_pw=512,stride = 1)
     ConvDwPw(net,from_layer='conv8',lr_mult=lr_mult,out_layer='conv9',num_output_dw=512,num_output_pw=512,stride = 1)
+
     ConvDwPw(net,from_layer='conv9',lr_mult=lr_mult,out_layer='conv10',num_output_dw=512,num_output_pw=512,stride = 1)
     ConvDwPw(net,from_layer='conv10',lr_mult=lr_mult,out_layer='conv11',num_output_dw=512,num_output_pw=512,stride = 1)
     ConvDwPw(net,from_layer='conv11',lr_mult=lr_mult,out_layer='conv12',num_output_dw=512,num_output_pw=1024,stride = 2)

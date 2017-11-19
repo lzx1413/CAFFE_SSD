@@ -257,9 +257,9 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
           output.add_child("detections", detections_);
           std::stringstream ss;
           //write_json(ss, output);
-          std::string rv = boost::regex_replace(ss.str(), exp, "$1");
-          outfile << rv.substr(rv.find("["), rv.rfind("]") - rv.find("["))
-              << std::endl << "]" << std::endl;
+          //std::string rv = boost::regex_replace(ss.str(), exp, "$1");
+          //outfile << rv.substr(rv.find("["), rv.rfind("]") - rv.find("["))
+          //   << std::endl << "]" << std::endl;
         } else if (output_format_ == "ILSVRC") {
           boost::filesystem::path output_directory(output_directory_);
           boost::filesystem::path file(output_name_prefix_ + ".txt");

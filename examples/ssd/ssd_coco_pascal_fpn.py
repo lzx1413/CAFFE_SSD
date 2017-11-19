@@ -247,7 +247,7 @@ test_transform_param = {
 # If true, use batch norm for all newly added layers.
 # Currently only the non batch norm version has been tested.
 use_batchnorm = False
-lr_mult = 2
+lr_mult = 1
 # Use different initial learning rate.
 if use_batchnorm:
     base_lr = 0.0004
@@ -256,10 +256,10 @@ else:
     base_lr = 0.00004/10
 
 # Modify the job name if you want.
-job_name = "SSD_FPN_COCOP_{}".format(resize)
+job_name = "SSD_FPN_COCOVOC_0712++_{}".format(resize)
 # The name of the model. Modify it if you want.
-model_name = "VGG_VOC0712_{}".format(job_name)
-date = '1109'
+model_name = "VGG_VOC0712_0712++_{}".format(job_name)
+date = '1028'
 # Directory which stores the model .prototxt file.
 save_dir = "models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the snapshot of models.
@@ -283,7 +283,9 @@ job_file = "{}/{}.sh".format(job_dir, model_name)
 name_size_file = "data/VOC0712/test_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
 #pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGG_VOC0712Plus_SSD_300x300_iter_240000.caffemodel"
-pretrain_model = "ssd_models/VGG_coco_voc_SSD_300x300.caffemodel"
+#pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGG_VOC0712_SSD_300x300_iter_120000.caffemodel"
+#pretrain_model = "ssd_models/VGG_coco_voc_SSD_300x300.caffemodel"
+pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGGNet/SSD_FPN_COCOVOC_300x300/1027/VGG_VOC0712_SSD_FPN_COCOVOC_300x300_iter_120000.caffemodel"
 #pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
 # Stores LabelMapItem.
 label_map_file = "data/VOC0712/labelmap_voc.prototxt"
@@ -396,7 +398,7 @@ solver_param = {
     'base_lr': base_lr,
     'weight_decay': 0.0005,
     'lr_policy': "multistep",
-    'stepvalue': [40000, 60000, 80000],
+    'stepvalue': [40000, 600000, 80000],
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
