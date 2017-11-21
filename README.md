@@ -27,10 +27,10 @@ SSD is an unified framework for object detection with a single network. You can 
 
 _Note: SSD300* and SSD512* are the latest models. Current code should reproduce these results._
 
-| method | VOC2007 test *mAP*(VOC07+12+COCO)|  VOC2012 test *mAP* (VOC07++12+COCO)|
-|:-------|:-----:|:-------:|
-|FSSD300* (VGG16) |82.7  | 82.0 |
-|FSSD512* (VGG16) | 84.5 | 84.2 |
+| method           | VOC2007 test *mAP*(VOC07+12+COCO) | VOC2012 test *mAP* (VOC07++12+COCO) |COCO test-dev|
+| :--------------- | :-------------------------------: | :---------------------------------: | :---------------------------------:|
+| FSSD300* (VGG16) |               82.7                |                82.0                 |27.1:47.7:27.8|
+| FSSD512* (VGG16) |               84.5                |                84.2                 |31.8:52.8:33.5|
 
 ### Citing SSD
 
