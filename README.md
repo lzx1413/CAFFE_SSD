@@ -1,13 +1,7 @@
-# FSSD: Feature Fusion Single Shot Multibox Detector
+# [FSSD: Feature Fusion Single Shot Multibox Detector](https://arxiv.org/abs/1712.00960) 
 
 [![Build Status](https://travis-ci.org/weiliu89/caffe.svg?branch=ssd)](https://travis-ci.org/weiliu89/caffe)
 [![License](https://img.shields.io/badge/license-BSD-blue.svg)](LICENSE)
-
-[arXiv paper](http://arxiv.org/abs/1512.02325) 
-
-<p align="center">
-<img src="http://www.cs.unc.edu/~wliu/papers/ssd.png" alt="SSD Framework" width="600px">
-</p>
 
 | System | VOC2007 test *mAP* | **FPS** (Titan X) | Number of Boxes | Input resolution
 |:-------|:-----:|:-------:|:-------:|:-------:|
@@ -15,6 +9,8 @@
 | [YOLO (customized)](http://pjreddie.com/darknet/yolo/) | 63.4 | 45 | 98 | 448 x 448 |
 | SSD300* (VGG16) | 77.2 | 46 | 8732 | 300 x 300 |
 | SSD512* (VGG16) | **79.8** | 19 | 24564 | 512 x 512 |
+| SSD300* (VGG16) | 78.8 | 35 | 8732 | 300 x 300 |
+| SSD512* (VGG16) | **80.9** | 16 | 24564 | 512 x 512 |
 
 
 <p align="left">
@@ -27,18 +23,6 @@ _Note: SSD300* and SSD512* are the latest models. Current code should reproduce 
 | :--------------- | :-------------------------------: | :---------------------------------: | :---------------------------------:|
 | FSSD300* (VGG16) |               82.7                |                82.0                 |27.1:47.7:27.8|
 | FSSD512* (VGG16) |               84.5                |                84.2                 |31.8:52.8:33.5|
-
-### Citing SSD
-
-Please cite SSD in your publications if it helps your research:
-
-    @inproceedings{liu2016ssd,
-      title = {{SSD}: Single Shot MultiBox Detector},
-      author = {Liu, Wei and Anguelov, Dragomir and Erhan, Dumitru and Szegedy, Christian and Reed, Scott and Fu, Cheng-Yang and Berg, Alexander C.},
-      booktitle = {ECCV},
-      year = {2016}
-    }
-
 ### Contents
 1. [Installation](#installation)
 2. [Preparation](#preparation)
