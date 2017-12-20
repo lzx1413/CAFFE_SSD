@@ -1,4 +1,4 @@
-import os
+import os, math
 
 import caffe
 from caffe import layers as L
@@ -26,7 +26,7 @@ def UnpackVariable(var, num):
       for i in xrange(0, num):
         ret.append(var)
     return ret
-  
+
 def ConvBNLayer(net, from_layer, out_layer, use_bn, use_relu, num_output,
     kernel_size, pad, stride, dilation=1, use_scale=True, lr_mult=1,
     conv_prefix='', conv_postfix='', bn_prefix='', bn_postfix='_bn',
@@ -174,7 +174,6 @@ def ResBody(net, from_layer, block_name, out2a, out2b, out2c, stride, use_branch
   relu_name = '{}_relu'.format(res_name)
   net[relu_name] = L.ReLU(net[res_name], in_place=True)
 
-
 def InceptionTower(net, from_layer, tower_name, layer_params, **bn_param):
   use_scale = False
   for param in layer_params:
@@ -214,342 +213,6 @@ def CreateAnnotatedDataLayer(source, batch_size=32, backend=P.Data.LMDB,
     return L.AnnotatedData(name="data", annotated_data_param=annotated_data_param,
         data_param=dict(batch_size=batch_size, backend=backend, source=source),
         ntop=ntop, **kwargs)
-
-
-def ZFNetBody(net, from_layer, need_fc=True, fully_conv=False, reduced=False,
-        dilated=False, dropout=True, need_fc8=False, freeze_layers=[]):
-    kwargs = {
-            'param': [dict(lr_mult=1, decay_mult=1), dict(lr_mult=2, decay_mult=0)],
-            'weight_filler': dict(type='xavier'),
-            'bias_filler': dict(type='constant', value=0)}
-
-    assert from_layer in net.keys()
-    net.conv1 = L.Convolution(net[from_layer], num_output=96, pad=3, kernel_size=7, stride=2, **kwargs)
-    net.relu1 = L.ReLU(net.conv1, in_place=True)
-
-    net.norm1 = L.LRN(net.relu1, local_size=3, alpha=0.00005, beta=0.75,
-            norm_region=P.LRN.WITHIN_CHANNEL, engine=P.LRN.CAFFE)
-
-    net.pool1 = L.Pooling(net.norm1, pool=P.Pooling.MAX, pad=1, kernel_size=3, stride=2)
-
-    net.conv2 = L.Convolution(net.pool1, num_output=256, pad=2, kernel_size=5, stride=2, **kwargs)
-    net.relu2 = L.ReLU(net.conv2, in_place=True)
-
-    net.norm2 = L.LRN(net.relu2, local_size=3, alpha=0.00005, beta=0.75,
-            norm_region=P.LRN.WITHIN_CHANNEL, engine=P.LRN.CAFFE)
-
-    net.pool2 = L.Pooling(net.norm2, pool=P.Pooling.MAX, pad=1, kernel_size=3, stride=2)
-
-    net.conv3 = L.Convolution(net.pool2, num_output=384, pad=1, kernel_size=3, **kwargs)
-    net.relu3 = L.ReLU(net.conv3, in_place=True)
-    net.conv4 = L.Convolution(net.relu3, num_output=384, pad=1, kernel_size=3, **kwargs)
-    net.relu4 = L.ReLU(net.conv4, in_place=True)
-    net.conv5 = L.Convolution(net.relu4, num_output=256, pad=1, kernel_size=3, **kwargs)
-    net.relu5 = L.ReLU(net.conv5, in_place=True)
-
-    if need_fc:
-        if dilated:
-            name = 'pool5'
-            net[name] = L.Pooling(net.relu5, pool=P.Pooling.MAX, pad=1, kernel_size=3, stride=1)
-        else:
-            name = 'pool5'
-            net[name] = L.Pooling(net.relu5, pool=P.Pooling.MAX, pad=1, kernel_size=3, stride=2)
-
-        if fully_conv:
-            if dilated:
-                if reduced:
-                    net.fc6 = L.Convolution(net[name], num_output=1024, pad=5, kernel_size=3, dilation=5, **kwargs)
-                else:
-                    net.fc6 = L.Convolution(net[name], num_output=4096, pad=5, kernel_size=6, dilation=2, **kwargs)
-            else:
-                if reduced:
-                    net.fc6 = L.Convolution(net[name], num_output=1024, pad=2, kernel_size=3, dilation=2,  **kwargs)
-                else:
-                    net.fc6 = L.Convolution(net[name], num_output=4096, pad=2, kernel_size=6, **kwargs)
-
-            net.relu6 = L.ReLU(net.fc6, in_place=True)
-            if dropout:
-                net.drop6 = L.Dropout(net.relu6, dropout_ratio=0.5, in_place=True)
-
-            if reduced:
-                net.fc7 = L.Convolution(net.relu6, num_output=1024, kernel_size=1, **kwargs)
-            else:
-                net.fc7 = L.Convolution(net.relu6, num_output=4096, kernel_size=1, **kwargs)
-            net.relu7 = L.ReLU(net.fc7, in_place=True)
-            if dropout:
-                net.drop7 = L.Dropout(net.relu7, dropout_ratio=0.5, in_place=True)
-        else:
-            net.fc6 = L.InnerProduct(net.pool5, num_output=4096)
-            net.relu6 = L.ReLU(net.fc6, in_place=True)
-            if dropout:
-                net.drop6 = L.Dropout(net.relu6, dropout_ratio=0.5, in_place=True)
-            net.fc7 = L.InnerProduct(net.relu6, num_output=4096)
-            net.relu7 = L.ReLU(net.fc7, in_place=True)
-            if dropout:
-                net.drop7 = L.Dropout(net.relu7, dropout_ratio=0.5, in_place=True)
-    if need_fc8:
-        from_layer = net.keys()[-1]
-        if fully_conv:
-            net.fc8 = L.Convolution(net[from_layer], num_output=1000, kernel_size=1, **kwargs)
-        else:
-            net.fc8 = L.InnerProduct(net[from_layer], num_output=1000)
-        net.prob = L.Softmax(net.fc8)
-
-    # Update freeze layers.
-    kwargs['param'] = [dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0)]
-    layers = net.keys()
-    for freeze_layer in freeze_layers:
-        if freeze_layer in layers:
-            net.update(freeze_layer, kwargs)
-
-    return net
-
-def DSOD300_V3_Body(net, from_layer):
-
-    def bn_relu_conv(bottom, ks, nout, stride, pad, dropout, inplace=True):
-        batch_norm = L.BatchNorm(bottom, in_place=False,
-                                 param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
-                                        dict(lr_mult=0, decay_mult=0)])
-        scale = L.Scale(batch_norm, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
-        relu = L.ReLU(scale, in_place=inplace)
-        conv = L.Convolution(relu, kernel_size=ks, stride=stride,
-                             num_output=nout, pad=pad, bias_term=False, weight_filler=dict(type='xavier'),
-                             bias_filler=dict(type='constant'))
-        if dropout > 0:
-            conv = L.Dropout(conv, dropout_ratio=dropout)
-        return conv
-
-    def add_layer(bottom, num_filter, dropout):
-        conv = bn_relu_conv(bottom, ks=3, nout=num_filter, stride=1, pad=1, dropout=dropout)
-        concate = L.Concat(bottom, conv, axis=1)
-        return concate
-
-    def add_bl_layer(bottom, num_filter, dropout, width):
-        conv = bn_relu_conv(bottom, ks=1, nout=int(width*num_filter), stride=1, pad=0, dropout=dropout)
-        conv = bn_relu_conv(conv, ks=3, nout=num_filter, stride=1, pad=1, dropout=dropout)
-        concate = L.Concat(bottom, conv, axis=1)
-        return concate
-
-    def add_bl_layer2(bottom, num_filter, dropout, width):
-        conv = bn_relu_conv(bottom, ks=1, nout=int(width*num_filter), stride=1, pad=0, dropout=dropout)
-        conv = bn_relu_conv(conv, ks=3, nout=num_filter, stride=2, pad=1, dropout=dropout)
-        conv2 = L.Pooling(bottom, pool=P.Pooling.MAX, kernel_size=2, stride=2)
-        conv2 = bn_relu_conv(conv2, ks=1, nout=num_filter, stride=1, pad=0, dropout=dropout)
-        concate = L.Concat(conv2, conv, axis=1)
-        return concate
-
-    def transition(bottom, num_filter, dropout):
-        conv = bn_relu_conv(bottom, ks=1, nout=num_filter, stride=1, pad=0, dropout=dropout, inplace=False)
-        pooling = L.Pooling(conv, pool=P.Pooling.MAX, kernel_size=2, stride=2)
-        return pooling
-
-    def transition3x3(bottom, num_filter, dropout):
-        conv = bn_relu_conv(bottom, ks=3, nout=num_filter, stride=2, pad=0, dropout=dropout, inplace=False)
-        # pooling = L.Pooling(conv, pool=P.Pooling.MAX, kernel_size=2, stride=2)
-        return conv
-
-    def transition_w_o_pooling(bottom, num_filter, dropout):
-        conv = bn_relu_conv(bottom, ks=1, nout=num_filter, stride=1, pad=0, dropout=dropout, inplace=False)
-        return conv
-
-    first_output = 128
-    growth_rate = 48
-    dropout = 0
-    nchannels = first_output
-
-    assert from_layer in net.keys()
-
-    # Stem
-    model = L.Convolution(net[from_layer], kernel_size=3, stride=2, num_output=64,  # output: 150x150
-                          pad=1, bias_term=False, weight_filler=dict(type='xavier'),
-                          bias_filler=dict(type='constant'))
-
-    model = L.BatchNorm(model, in_place=False, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
-                                                      dict(lr_mult=0, decay_mult=0)])
-    model = L.Scale(model, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
-    model = L.ReLU(model, in_place=True)
-
-    model = L.Convolution(model, kernel_size=3, stride=1, num_output=64,
-                          pad=1, bias_term=False, weight_filler=dict(type='xavier'),
-                          bias_filler=dict(type='constant'))
-    model = L.BatchNorm(model, in_place=False, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
-                                                      dict(lr_mult=0, decay_mult=0)])
-    model = L.Scale(model, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
-    model = L.ReLU(model, in_place=True)
-
-    model = L.Convolution(model, kernel_size=3, stride=1, num_output=128,
-                          pad=1, bias_term=False, weight_filler=dict(type='xavier'),
-                          bias_filler=dict(type='constant'))
-    model = L.BatchNorm(model, in_place=False, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
-                                                      dict(lr_mult=0, decay_mult=0)])
-    model = L.Scale(model, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
-    model = L.ReLU(model, in_place=True)
-    model = L.Pooling(model, pool=P.Pooling.MAX, kernel_size=2, stride=2)  # pooling1: 75x75
-
-    times = 1
-    for i in range(6):
-        model = add_bl_layer(model, growth_rate, dropout, 4)
-        nchannels += growth_rate
-    nchannels = int(nchannels / times)
-    model = transition(model, nchannels, dropout)  # pooling2: 38x38
-    for i in range(8):
-        model = add_bl_layer(model, growth_rate, dropout, 4)
-        nchannels += growth_rate
-    nchannels = int(nchannels / times)
-    model = transition_w_o_pooling(model, nchannels, dropout)  # 38x38
-    net.First = model
-    model1 = L.Pooling(model, pool=P.Pooling.MAX, kernel_size=2, stride=2)
-    for i in range(8):
-        model1 = add_bl_layer(model1, growth_rate, dropout, 4)
-        nchannels += growth_rate
-    nchannels = int(nchannels / times)
-    model1 = transition_w_o_pooling(model1, nchannels, dropout)  # without pooling
-    for i in range(8):
-        model1 = add_bl_layer(model1, growth_rate, dropout, 4)
-        nchannels += growth_rate
-    # nchannels = int(nchannels / times)
-    model1 = transition_w_o_pooling(model1, 256, dropout)  # without pooling
-
-    f_first = L.Pooling(net.First, pool=P.Pooling.MAX, kernel_size=2, stride=2)
-    f_first = bn_relu_conv(f_first, ks=1, nout=256, stride=1, pad=0, dropout=dropout)
-    model1 = L.Concat(model1, f_first, axis=1)
-    net.Second = model1  # pooling3: 19x19
-    # name = 'Second'
-    #AddExtraLayers
-    model2 = add_bl_layer2(model1, 256, dropout, 1) # pooling4: 10x10
-    net.Third = model2
-    #model3 = add_bl_layer2(model2, 128, dropout, 1) # pooling5: 5x5
-    #net.Fourth = model3
-    #model4 = add_bl_layer2(model3, 128, dropout, 1) # pooling6: 3x3
-    #net.Fifth = model4
-    #model5 = add_bl_layer2(model4, 128, dropout, 1) # pooling7: 1x1
-    #net.Sixth = model5
-    return net
-
-def DSOD512_V3_Body(net, from_layer):
-
-    def bn_relu_conv(bottom, ks, nout, stride, pad, dropout, inplace=True):
-        batch_norm = L.BatchNorm(bottom, in_place=False,
-                                 param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
-                                        dict(lr_mult=0, decay_mult=0)])
-        scale = L.Scale(batch_norm, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
-        relu = L.ReLU(scale, in_place=inplace)
-        conv = L.Convolution(relu, kernel_size=ks, stride=stride,
-                             num_output=nout, pad=pad, bias_term=False, weight_filler=dict(type='xavier'),
-                             bias_filler=dict(type='constant'))
-        if dropout > 0:
-            conv = L.Dropout(conv, dropout_ratio=dropout)
-        return conv
-
-    def add_layer(bottom, num_filter, dropout):
-        conv = bn_relu_conv(bottom, ks=3, nout=num_filter, stride=1, pad=1, dropout=dropout)
-        concate = L.Concat(bottom, conv, axis=1)
-        return concate
-
-    def add_bl_layer(bottom, num_filter, dropout, width):
-        conv = bn_relu_conv(bottom, ks=1, nout=int(width*num_filter), stride=1, pad=0, dropout=dropout)
-        conv = bn_relu_conv(conv, ks=3, nout=num_filter, stride=1, pad=1, dropout=dropout)
-        concate = L.Concat(bottom, conv, axis=1)
-        return concate
-
-    def add_bl_layer2(bottom, num_filter, dropout, width):
-        conv = bn_relu_conv(bottom, ks=1, nout=int(width*num_filter), stride=1, pad=0, dropout=dropout)
-        conv = bn_relu_conv(conv, ks=3, nout=num_filter, stride=2, pad=1, dropout=dropout)
-        conv2 = L.Pooling(bottom, pool=P.Pooling.MAX, kernel_size=2, stride=2)
-        conv2 = bn_relu_conv(conv2, ks=1, nout=num_filter, stride=1, pad=0, dropout=dropout)
-        concate = L.Concat(conv2, conv, axis=1)
-        return concate
-
-    def transition(bottom, num_filter, dropout):
-        conv = bn_relu_conv(bottom, ks=1, nout=num_filter, stride=1, pad=0, dropout=dropout, inplace=False)
-        pooling = L.Pooling(conv, pool=P.Pooling.MAX, kernel_size=2, stride=2)
-        return pooling
-
-    def transition3x3(bottom, num_filter, dropout):
-        conv = bn_relu_conv(bottom, ks=3, nout=num_filter, stride=2, pad=0, dropout=dropout, inplace=False)
-        # pooling = L.Pooling(conv, pool=P.Pooling.MAX, kernel_size=2, stride=2)
-        return conv
-
-    def transition_w_o_pooling(bottom, num_filter, dropout):
-        conv = bn_relu_conv(bottom, ks=1, nout=num_filter, stride=1, pad=0, dropout=dropout, inplace=False)
-        # pooling = L.Pooling(conv, pool=P.Pooling.AVE, kernel_size=2, stride=2)
-        return conv
-
-    first_output = 128
-    growth_rate = 48
-    dropout = 0
-    nchannels = first_output
-
-    assert from_layer in net.keys()
-    # Stem
-    model = L.Convolution(net[from_layer], kernel_size=3, stride=2, num_output=64,  # output: 256x256
-                          pad=1, bias_term=False, weight_filler=dict(type='xavier'),
-                          bias_filler=dict(type='constant'))
-
-    model = L.BatchNorm(model, in_place=False, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
-                                                      dict(lr_mult=0, decay_mult=0)])
-    model = L.Scale(model, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
-    model = L.ReLU(model, in_place=True)
-
-    model = L.Convolution(model, kernel_size=3, stride=1, num_output=64,
-                          pad=1, bias_term=False, weight_filler=dict(type='xavier'),
-                          bias_filler=dict(type='constant'))
-    model = L.BatchNorm(model, in_place=False, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
-                                                      dict(lr_mult=0, decay_mult=0)])
-    model = L.Scale(model, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
-    model = L.ReLU(model, in_place=True)
-
-    model = L.Convolution(model, kernel_size=3, stride=1, num_output=128,
-                          pad=1, bias_term=False, weight_filler=dict(type='xavier'),
-                          bias_filler=dict(type='constant'))
-    model = L.BatchNorm(model, in_place=False, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
-                                                      dict(lr_mult=0, decay_mult=0)])
-    model = L.Scale(model, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
-    model = L.ReLU(model, in_place=True)
-    model = L.Pooling(model, pool=P.Pooling.MAX, kernel_size=2, stride=2)  # pooling1: 128x128
-
-    times = 1
-    for i in range(6):
-        model = add_bl_layer(model, growth_rate, dropout, 4)
-        nchannels += growth_rate
-    nchannels = int(nchannels / times)
-    model = transition(model, nchannels, dropout)  # pooling2: 64x64
-    for i in range(8):
-        model = add_bl_layer(model, growth_rate, dropout, 4)
-        nchannels += growth_rate
-    nchannels = int(nchannels / times)
-    model = transition_w_o_pooling(model, nchannels, dropout)  # 64x64
-    net.First = model
-    model1 = L.Pooling(model, pool=P.Pooling.MAX, kernel_size=2, stride=2)
-    for i in range(8):
-        model1 = add_bl_layer(model1, growth_rate, dropout, 4)
-        nchannels += growth_rate
-    nchannels = int(nchannels / times)
-    model1 = transition_w_o_pooling(model1, nchannels, dropout)  # without pooling
-
-    for i in range(8):
-        model1 = add_bl_layer(model1, growth_rate, dropout, 4)
-        nchannels += growth_rate
-    # nchannels = int(nchannels / times)
-    model1 = transition_w_o_pooling(model1, 256, dropout)  # without pooling
-
-    f_first = L.Pooling(net.First, pool=P.Pooling.MAX, kernel_size=2, stride=2)
-    f_first = bn_relu_conv(f_first, ks=1, nout=256, stride=1, pad=0, dropout=dropout)
-    model1 = L.Concat(model1, f_first, axis=1)
-    net.Second = model1  # pooling3: 32x32
-    # name = 'Second'
-    #AddExtraLayers
-    model2 = add_bl_layer2(model1, 256, dropout, 1)# pooling4: 16x16
-    net.Third = model2
-    model3 = add_bl_layer2(model2, 128, dropout, 1)# pooling5: 8x8
-    net.Fourth = model3
-    model4 = add_bl_layer2(model3, 128, dropout, 1)# pooling6: 4x4
-    net.Fifth_ = model4
-    model5 = add_bl_layer2(model4, 128, dropout, 1) # pooling7: 2x2
-    net.Sixth_ = model5
-    model6 = add_bl_layer2(model5, 128, dropout, 1) # pooling8: 1x1
-    net.Seventh_ = model6
-    return net
 
 def VGGNetBody(net, from_layer, need_fc=True, fully_conv=False, reduced=False,
         dilated=False, nopool=False, dropout=True, freeze_layers=[], dilate_pool4=False):
@@ -693,6 +356,252 @@ def VGGNetBody(net, from_layer, need_fc=True, fully_conv=False, reduced=False,
 
     return net
 
+def DSOD300_V3_Body(net, from_layer):
+
+    def bn_relu_conv(bottom, ks, nout, stride, pad, dropout, inplace=True):
+        batch_norm = L.BatchNorm(bottom, in_place=False,
+                                 param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
+                                        dict(lr_mult=0, decay_mult=0)])
+        scale = L.Scale(batch_norm, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
+        relu = L.ReLU(scale, in_place=inplace)
+        conv = L.Convolution(relu, kernel_size=ks, stride=stride,
+                             num_output=nout, pad=pad, bias_term=False, weight_filler=dict(type='xavier'),
+                             bias_filler=dict(type='constant'))
+        if dropout > 0:
+            conv = L.Dropout(conv, dropout_ratio=dropout)
+        return conv
+
+    def add_layer(bottom, num_filter, dropout):
+        conv = bn_relu_conv(bottom, ks=3, nout=num_filter, stride=1, pad=1, dropout=dropout)
+        concate = L.Concat(bottom, conv, axis=1)
+        return concate
+
+    def add_bl_layer(bottom, num_filter, dropout, width):
+        conv = bn_relu_conv(bottom, ks=1, nout=int(width*num_filter), stride=1, pad=0, dropout=dropout)
+        conv = bn_relu_conv(conv, ks=3, nout=num_filter, stride=1, pad=1, dropout=dropout)
+        concate = L.Concat(bottom, conv, axis=1)
+        return concate
+
+    def add_bl_layer2(bottom, num_filter, dropout, width):
+        conv = bn_relu_conv(bottom, ks=1, nout=int(width*num_filter), stride=1, pad=0, dropout=dropout)
+        conv = bn_relu_conv(conv, ks=3, nout=num_filter, stride=2, pad=1, dropout=dropout)
+        conv2 = L.Pooling(bottom, pool=P.Pooling.MAX, kernel_size=2, stride=2)
+        conv2 = bn_relu_conv(conv2, ks=1, nout=num_filter, stride=1, pad=0, dropout=dropout)
+        concate = L.Concat(conv2, conv, axis=1)
+        return concate
+
+    def transition(bottom, num_filter, dropout):
+        conv = bn_relu_conv(bottom, ks=1, nout=num_filter, stride=1, pad=0, dropout=dropout, inplace=False)
+        pooling = L.Pooling(conv, pool=P.Pooling.MAX, kernel_size=2, stride=2)
+        return pooling
+
+    def transition3x3(bottom, num_filter, dropout):
+        conv = bn_relu_conv(bottom, ks=3, nout=num_filter, stride=2, pad=0, dropout=dropout, inplace=False)
+        # pooling = L.Pooling(conv, pool=P.Pooling.MAX, kernel_size=2, stride=2)
+        return conv
+
+    def transition_w_o_pooling(bottom, num_filter, dropout):
+        conv = bn_relu_conv(bottom, ks=1, nout=num_filter, stride=1, pad=0, dropout=dropout, inplace=False)
+        return conv
+
+    first_output = 128
+    growth_rate = 48
+    dropout = 0
+    nchannels = first_output
+
+    assert from_layer in net.keys()
+
+    # Stem
+    model = L.Convolution(net[from_layer], kernel_size=3, stride=2, num_output=64,  # output: 150x150
+                          pad=1, bias_term=False, weight_filler=dict(type='xavier'),
+                          bias_filler=dict(type='constant'))
+
+    model = L.BatchNorm(model, in_place=False, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
+                                                      dict(lr_mult=0, decay_mult=0)])
+    model = L.Scale(model, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
+    model = L.ReLU(model, in_place=True)
+
+    model = L.Convolution(model, kernel_size=3, stride=1, num_output=64,
+                          pad=1, bias_term=False, weight_filler=dict(type='xavier'),
+                          bias_filler=dict(type='constant'))
+    model = L.BatchNorm(model, in_place=False, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
+                                                      dict(lr_mult=0, decay_mult=0)])
+    model = L.Scale(model, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
+    model = L.ReLU(model, in_place=True)
+
+    model = L.Convolution(model, kernel_size=3, stride=1, num_output=128,
+                          pad=1, bias_term=False, weight_filler=dict(type='xavier'),
+                          bias_filler=dict(type='constant'))
+    model = L.BatchNorm(model, in_place=False, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
+                                                      dict(lr_mult=0, decay_mult=0)])
+    model = L.Scale(model, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
+    model = L.ReLU(model, in_place=True)
+    model = L.Pooling(model, pool=P.Pooling.MAX, kernel_size=2, stride=2)  # pooling1: 75x75
+
+    times = 1
+    for i in range(6):
+        model = add_bl_layer(model, growth_rate, dropout, 4)
+        nchannels += growth_rate
+    nchannels = int(nchannels / times)
+    model = transition(model, nchannels, dropout)  # pooling2: 38x38
+    for i in range(8):
+        model = add_bl_layer(model, growth_rate, dropout, 4)
+        nchannels += growth_rate
+    nchannels = int(nchannels / times)
+    model = transition_w_o_pooling(model, nchannels, dropout)  # 38x38
+    net.First = model
+    model1 = L.Pooling(model, pool=P.Pooling.MAX, kernel_size=2, stride=2)
+    for i in range(8):
+        model1 = add_bl_layer(model1, growth_rate, dropout, 4)
+        nchannels += growth_rate
+    nchannels = int(nchannels / times)
+    model1 = transition_w_o_pooling(model1, nchannels, dropout)  # without pooling
+    for i in range(8):
+        model1 = add_bl_layer(model1, growth_rate, dropout, 4)
+        nchannels += growth_rate
+    # nchannels = int(nchannels / times)
+    model1 = transition_w_o_pooling(model1, 256, dropout)  # without pooling
+
+    f_first = L.Pooling(net.First, pool=P.Pooling.MAX, kernel_size=2, stride=2)
+    f_first = bn_relu_conv(f_first, ks=1, nout=256, stride=1, pad=0, dropout=dropout)
+    model1 = L.Concat(model1, f_first, axis=1)
+    net.Second = model1  # pooling3: 19x19
+    # name = 'Second'
+    #AddExtraLayers
+    model2 = add_bl_layer2(model1, 256, dropout, 1) # pooling4: 10x10
+    net.Third = model2
+    model3 = add_bl_layer2(model2, 128, dropout, 1) # pooling5: 5x5
+    net.Fourth = model3
+    model4 = add_bl_layer2(model3, 128, dropout, 1) # pooling6: 3x3
+    net.Fifth = model4
+    model5 = add_bl_layer2(model4, 128, dropout, 1) # pooling7: 1x1
+    net.Sixth = model5
+    return net
+
+def DSOD512_V3_Body(net, from_layer):
+
+    def bn_relu_conv(bottom, ks, nout, stride, pad, dropout, inplace=True):
+        batch_norm = L.BatchNorm(bottom, in_place=False,
+                                 param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
+                                        dict(lr_mult=0, decay_mult=0)])
+        scale = L.Scale(batch_norm, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
+        relu = L.ReLU(scale, in_place=inplace)
+        conv = L.Convolution(relu, kernel_size=ks, stride=stride,
+                             num_output=nout, pad=pad, bias_term=False, weight_filler=dict(type='xavier'),
+                             bias_filler=dict(type='constant'))
+        if dropout > 0:
+            conv = L.Dropout(conv, dropout_ratio=dropout)
+        return conv
+
+    def add_layer(bottom, num_filter, dropout):
+        conv = bn_relu_conv(bottom, ks=3, nout=num_filter, stride=1, pad=1, dropout=dropout)
+        concate = L.Concat(bottom, conv, axis=1)
+        return concate
+
+    def add_bl_layer(bottom, num_filter, dropout, width):
+        conv = bn_relu_conv(bottom, ks=1, nout=int(width*num_filter), stride=1, pad=0, dropout=dropout)
+        conv = bn_relu_conv(conv, ks=3, nout=num_filter, stride=1, pad=1, dropout=dropout)
+        concate = L.Concat(bottom, conv, axis=1)
+        return concate
+
+    def add_bl_layer2(bottom, num_filter, dropout, width):
+        conv = bn_relu_conv(bottom, ks=1, nout=int(width*num_filter), stride=1, pad=0, dropout=dropout)
+        conv = bn_relu_conv(conv, ks=3, nout=num_filter, stride=2, pad=1, dropout=dropout)
+        conv2 = L.Pooling(bottom, pool=P.Pooling.MAX, kernel_size=2, stride=2)
+        conv2 = bn_relu_conv(conv2, ks=1, nout=num_filter, stride=1, pad=0, dropout=dropout)
+        concate = L.Concat(conv2, conv, axis=1)
+        return concate
+
+    def transition(bottom, num_filter, dropout):
+        conv = bn_relu_conv(bottom, ks=1, nout=num_filter, stride=1, pad=0, dropout=dropout, inplace=False)
+        pooling = L.Pooling(conv, pool=P.Pooling.MAX, kernel_size=2, stride=2)
+        return pooling
+
+    def transition3x3(bottom, num_filter, dropout):
+        conv = bn_relu_conv(bottom, ks=3, nout=num_filter, stride=2, pad=0, dropout=dropout, inplace=False)
+        # pooling = L.Pooling(conv, pool=P.Pooling.MAX, kernel_size=2, stride=2)
+        return conv
+
+    def transition_w_o_pooling(bottom, num_filter, dropout):
+        conv = bn_relu_conv(bottom, ks=1, nout=num_filter, stride=1, pad=0, dropout=dropout, inplace=False)
+        # pooling = L.Pooling(conv, pool=P.Pooling.AVE, kernel_size=2, stride=2)
+        return conv
+
+    first_output = 128
+    growth_rate = 48
+    dropout = 0
+    nchannels = first_output
+
+    assert from_layer in net.keys()
+    # Stem
+    model = L.Convolution(net[from_layer], kernel_size=3, stride=2, num_output=64,  # output: 256x256
+                          pad=1, bias_term=False, weight_filler=dict(type='xavier'),
+                          bias_filler=dict(type='constant'))
+
+    model = L.BatchNorm(model, in_place=False, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
+                                                      dict(lr_mult=0, decay_mult=0)])
+    model = L.Scale(model, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
+    model = L.ReLU(model, in_place=True)
+
+    model = L.Convolution(model, kernel_size=3, stride=1, num_output=64,
+                          pad=1, bias_term=False, weight_filler=dict(type='xavier'),
+                          bias_filler=dict(type='constant'))
+    model = L.BatchNorm(model, in_place=False, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
+                                                      dict(lr_mult=0, decay_mult=0)])
+    model = L.Scale(model, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
+    model = L.ReLU(model, in_place=True)
+
+    model = L.Convolution(model, kernel_size=3, stride=1, num_output=128,
+                          pad=1, bias_term=False, weight_filler=dict(type='xavier'),
+                          bias_filler=dict(type='constant'))
+    model = L.BatchNorm(model, in_place=False, param=[dict(lr_mult=0, decay_mult=0), dict(lr_mult=0, decay_mult=0),
+                                                      dict(lr_mult=0, decay_mult=0)])
+    model = L.Scale(model, bias_term=True, in_place=True, filler=dict(value=1), bias_filler=dict(value=0))
+    model = L.ReLU(model, in_place=True)
+    model = L.Pooling(model, pool=P.Pooling.MAX, kernel_size=2, stride=2)  # pooling1: 128x128
+
+    times = 1
+    for i in range(6):
+        model = add_bl_layer(model, growth_rate, dropout, 4)
+        nchannels += growth_rate
+    nchannels = int(nchannels / times)
+    model = transition(model, nchannels, dropout)  # pooling2: 64x64
+    for i in range(8):
+        model = add_bl_layer(model, growth_rate, dropout, 4)
+        nchannels += growth_rate
+    nchannels = int(nchannels / times)
+    model = transition_w_o_pooling(model, nchannels, dropout)  # 64x64
+    net.First = model
+    model1 = L.Pooling(model, pool=P.Pooling.MAX, kernel_size=2, stride=2)
+    for i in range(8):
+        model1 = add_bl_layer(model1, growth_rate, dropout, 4)
+        nchannels += growth_rate
+    nchannels = int(nchannels / times)
+    model1 = transition_w_o_pooling(model1, nchannels, dropout)  # without pooling
+
+    for i in range(8):
+        model1 = add_bl_layer(model1, growth_rate, dropout, 4)
+        nchannels += growth_rate
+    # nchannels = int(nchannels / times)
+    model1 = transition_w_o_pooling(model1, 256, dropout)  # without pooling
+
+    f_first = L.Pooling(net.First, pool=P.Pooling.MAX, kernel_size=2, stride=2)
+    f_first = bn_relu_conv(f_first, ks=1, nout=256, stride=1, pad=0, dropout=dropout)
+    model1 = L.Concat(model1, f_first, axis=1)
+    net.Second = model1  # pooling3: 32x32
+    # name = 'Second'
+    #AddExtraLayers
+    model2 = add_bl_layer2(model1, 256, dropout, 1)# pooling4: 16x16
+    net.Third = model2
+    model3 = add_bl_layer2(model2, 128, dropout, 1)# pooling5: 8x8
+    net.Fourth = model3
+    model4 = add_bl_layer2(model3, 128, dropout, 1)# pooling6: 4x4
+    net.Fifth_ = model4
+    model5 = add_bl_layer2(model4, 128, dropout, 1) # pooling7: 2x2
+    net.Sixth_ = model5
+    model6 = add_bl_layer2(model5, 128, dropout, 1) # pooling8: 1x1
+    net.Seventh_ = model6
+    return net
 
 def ResNet101Body(net, from_layer, use_pool5=True, use_dilation_conv5=False, **bn_param):
     conv_prefix = ''
@@ -744,7 +653,6 @@ def ResNet101Body(net, from_layer, use_pool5=True, use_dilation_conv5=False, **b
 
     return net
 
-
 def ResNet152Body(net, from_layer, use_pool5=True, use_dilation_conv5=False, **bn_param):
     conv_prefix = ''
     conv_postfix = ''
@@ -794,7 +702,6 @@ def ResNet152Body(net, from_layer, use_pool5=True, use_dilation_conv5=False, **b
       net.pool5 = L.Pooling(net.res5c, pool=P.Pooling.AVE, global_pooling=True)
 
     return net
-
 
 def InceptionV3Body(net, from_layer, output_pred=False, **bn_param):
   # scale is fixed to 1, thus we ignore it.
@@ -1040,7 +947,7 @@ def CreateMultiBoxHead(net, data_layer="data", num_classes=[], from_layers=[],
         use_scale=True, min_sizes=[], max_sizes=[], prior_variance = [0.1],
         aspect_ratios=[], steps=[], img_height=0, img_width=0, share_location=True,
         flip=True, clip=True, offset=0.5, inter_layer_depth=[], kernel_size=1, pad=0,
-        conf_postfix='', loc_postfix='',max_out= 0, **bn_param):
+        conf_postfix='', loc_postfix='', **bn_param):
     assert num_classes, "must provide num_classes"
     assert num_classes > 0, "num_classes must be positive number"
     if normalizations:
@@ -1112,23 +1019,7 @@ def CreateMultiBoxHead(net, data_layer="data", num_classes=[], from_layers=[],
         num_loc_output = num_priors_per_location * 4;
         if not share_location:
             num_loc_output *= num_classes
-        if max_out>0:
-          slice_point = []
-          for i in xrange(max_out-1):
-            slice_point.append(num_loc_output*(i+1))
-          ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False, lr_mult=lr_mult,
-            num_output=num_loc_output*max_out, kernel_size=kernel_size, pad=pad, stride=1, **bn_param)
-          net[name+'_slice_0'],net[name+'_slice_1'],net[name+'_slice_2'],net[name+'_slice_3'],\
-          net[name+'_slice_4'],net[name+'_slice_5'] ,\
-          net[name+'_slice_6'],net[name+'_slice_7'] ,\
-          net[name+'_slice_8'] = L.Slice(net[name],slice_param={'axis':1,'slice_point':slice_point},ntop = 9)
-          net[name+'_max'] = L.Eltwise(net[name+'_slice_0'],net[name+'_slice_1'],net[name+'_slice_2'],net[name+'_slice_3'],\
-          net[name+'_slice_4'],net[name+'_slice_5'] ,\
-          net[name+'_slice_6'],net[name+'_slice_7'] ,\
-          net[name+'_slice_8'],eltwise_param = {'operation':2})
-          name = name+'_max'
-        else:
-          ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False, lr_mult=lr_mult,
+        ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False, lr_mult=lr_mult,
             num_output=num_loc_output, kernel_size=kernel_size, pad=pad, stride=1, **bn_param)
         permute_name = "{}_perm".format(name)
         net[permute_name] = L.Permute(net[name], order=[0, 2, 3, 1])
@@ -1139,23 +1030,7 @@ def CreateMultiBoxHead(net, data_layer="data", num_classes=[], from_layers=[],
         # Create confidence prediction layer.
         name = "{}_mbox_conf{}".format(from_layer, conf_postfix)
         num_conf_output = num_priors_per_location * num_classes;
-        if max_out>0:
-          ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False, lr_mult=lr_mult,
-            num_output=num_conf_output*max_out, kernel_size=kernel_size, pad=pad, stride=1, **bn_param)
-          slice_point = []
-          for i in xrange(max_out-1):
-            slice_point.append(num_conf_output*(i+1))
-          net[name+'_slice_0'],net[name+'_slice_1'],net[name+'_slice_2'],net[name+'_slice_3'],\
-          net[name+'_slice_4'],net[name+'_slice_5'] ,\
-          net[name+'_slice_6'],net[name+'_slice_7'] ,\
-          net[name+'_slice_8'] = L.Slice(net[name],slice_param={'axis':1,'slice_point':slice_point},ntop = 9)
-          net[name+'_max'] = L.Eltwise(net[name+'_slice_0'],net[name+'_slice_1'],net[name+'_slice_2'],net[name+'_slice_3'],\
-          net[name+'_slice_4'],net[name+'_slice_5'] ,\
-          net[name+'_slice_6'],net[name+'_slice_7'] ,\
-          net[name+'_slice_8'],eltwise_param = {'operation':2})
-          name = name+'_max'
-        else:
-          ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False, lr_mult=lr_mult,
+        ConvBNLayer(net, from_layer, name, use_bn=use_batchnorm, use_relu=False, lr_mult=lr_mult,
             num_output=num_conf_output, kernel_size=kernel_size, pad=pad, stride=1, **bn_param)
         permute_name = "{}_perm".format(name)
         net[permute_name] = L.Permute(net[name], order=[0, 2, 3, 1])

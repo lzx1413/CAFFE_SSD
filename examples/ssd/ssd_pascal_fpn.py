@@ -1,4 +1,6 @@
 from __future__ import print_function
+import sys
+
 
 import math
 import os
@@ -6,6 +8,7 @@ import shutil
 import stat
 import subprocess
 import sys
+sys.path.append('/home/super/workspace/zuoxin/CAFFE_SSD/python/')
 
 import caffe
 from caffe import layers as L
@@ -14,7 +17,7 @@ from caffe.proto import caffe_pb2
 from caffe.model_libs import *
 from google.protobuf import text_format
 # Add extra layers on top of a "base" network (e.g. VGGNet or Inception).
-def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
+def AddExtraLayers(net, use_batchnorm=False, lr_mult=1):
     use_relu = True
 
     # Add additional convolutional layers.
@@ -103,9 +106,9 @@ resume_training = True
 remove_old_models = False
 
 # The database file for training data. Created by data/VOC0712/create_data.sh
-train_data = "/home/foto1/DataBase/VOC0712/lmdb/VOC0712_trainval_lmdb"
+train_data = "/home/super/Database/VOC0712/lmdb/VOC0712_trainval_lmdb"
 # The database file for testing data. Created by data/VOC0712/create_data.sh
-test_data = "/home/foto1/DataBase/VOC0712/lmdb/VOC0712_test_lmdb"
+test_data = "/home/super/Database/VOC0712/lmdb/VOC0712_test_lmdb"
 # Specify the batch sampler.
 resize_width =300
 resize_height = 300
@@ -256,14 +259,14 @@ else:
     base_lr = 0.00004/10
 
 # Modify the job name if you want.
-job_name = "SSD_FPN_NO33_{}".format(resize)
+job_name = "SSD_FPN_{}".format(resize)
 # The name of the model. Modify it if you want.
 model_name = "VGG_VOC0712_{}".format(job_name)
-date = '1015'
+date = '1026'
 # Directory which stores the model .prototxt file.
 save_dir = "models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the snapshot of models.
-snapshot_dir = "/mnt/lvmhdd1/zuoxin/ssd_models/VGGNet/{}/{}".format(job_name,date)
+snapshot_dir = "ssd_models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the job script and log file.
 job_dir = "jobs/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the detection results.
@@ -282,7 +285,7 @@ job_file = "{}/{}.sh".format(job_dir, model_name)
 # Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
 name_size_file = "data/VOC0712/test_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
-pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGG_VOC0712_SSD_300x300_iter_120000.caffemodel"
+pretrain_model = "ssd_models/VGG_VOC0712_SSD_300x300_iter_120000.caffemodel"
 #pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/VGGNet/SSD_300x300/0922/VGG_VOC0712_SSD_300x300_iter_120000.caffemodel"
 # Stores LabelMapItem.
 label_map_file = "data/VOC0712/labelmap_voc.prototxt"
@@ -327,8 +330,7 @@ min_dim = 300
 # conv6_2 ==> 10 x 10
 # conv7_2 ==> 5 x 5
 # conv8_2 ==> 3 x 3
-# conv9_2 ==> 1 x 1
-#mbox_source_layers = ['conv4_3', 'fc7', 'conv6_2', 'conv7_2', 'conv8_2', 'conv9_2']
+# conv9_2 ==> 1 x 1 #mbox_source_layers = ['conv4_3', 'fc7', 'conv6_2', 'conv7_2', 'conv8_2', 'conv9_2']
 mbox_source_layers = ['fea_concat_bn_ds_1','fea_concat_bn_ds_2','fea_concat_bn_ds_4','fea_concat_bn_ds_8','fea_concat_bn_ds_16','fea_concat_bn_ds_32']
 # in percent %
 min_ratio = 20
@@ -344,7 +346,7 @@ min_sizes = [min_dim * 10 / 100.] + min_sizes
 max_sizes = [min_dim * 20 / 100.] + max_sizes
 #steps = [8,16,32,64,100,300]
 steps = []
-aspect_ratios = [[2,3],[2,3],[2,3],[2],[2],[2]]
+aspect_ratios = [[2],[2,3],[2,3],[2],[2],[2]]
 # L2 normalize conv4_3.
 normalizations = [-1,-1,-1,-1,-1,-1]
 # variance used to encode/decode prior bboxes.
@@ -357,7 +359,7 @@ clip = False
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "0,1"
+gpus = "4,5"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
@@ -395,12 +397,12 @@ solver_param = {
     'base_lr': 0.0005,
     'weight_decay': 0.0005,
     'lr_policy': "multistep",
-    'stepvalue': [20000, 40000, 60000],
+    'stepvalue': [40000, 60000, 80000],
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 60000,
-    'snapshot': 10000,
+    'max_iter': 80000,
+    'snapshot': 5000,
     'display': 10,
     'average_loss': 10,
     'type': "SGD",

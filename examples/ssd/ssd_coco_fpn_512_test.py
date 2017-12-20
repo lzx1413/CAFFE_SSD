@@ -10,58 +10,94 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 
 # Add extra layers on top of a "base" network (e.g. VGGNet or Inception).
 def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     use_relu = True
-
-    # Add additional convolutional layers.
-    # 19 x 19
+    # 32 x 32
     from_layer = net.keys()[-1]
+   
+
+   
+
 
     # TODO(weiliu89): Construct the name using the last layer to avoid duplication.
-    # 10 x 10
+    # 32 x 32
     out_layer = "conv6_1"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 1, 0, 1,
-        lr_mult=lr_mult)
+        lr_mult=1)
 
     from_layer = out_layer
     out_layer = "conv6_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 512, 3, 1, 2,
-        lr_mult=lr_mult)
-
-    # 5 x 5
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 512, 3, 1, 1,
+        lr_mult=1)
     from_layer = out_layer
     out_layer = "conv7_1"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=lr_mult)
-
+      lr_mult=1)
     from_layer = out_layer
     out_layer = "conv7_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,
-      lr_mult=lr_mult)
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,lr_mult = 1)
 
-    # 3 x 3
+     # 4 x 4
+    '''
     from_layer = out_layer
     out_layer = "conv8_1"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=lr_mult)
+      lr_mult=1)
 
     from_layer = out_layer
     out_layer = "conv8_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 0, 1,
-      lr_mult=lr_mult)
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,
+      lr_mult=1)
 
-    # 1 x 1
+    # 2 x 2
     from_layer = out_layer
     out_layer = "conv9_1"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=lr_mult)
+      lr_mult=1)
 
     from_layer = out_layer
     out_layer = "conv9_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 0, 1,
-      lr_mult=lr_mult)
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,
+      lr_mult=1)
+
+    # 1 x 1
+    from_layer = out_layer
+    out_layer = "conv10_1"
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
+      lr_mult=1)
+
+    from_layer = out_layer
+    out_layer = "conv10_2"
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 4, 1, 1,
+      lr_mult=1)
+    '''
+    #net['conv3_3_ds'] = L.Pooling(net['conv3_3'], pool=P.Pooling.MAX, pad=0, kernel_size=2, stride=2)
+    ConvBNLayer(net, "conv4_3",  "conv4_3_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
+        lr_mult=lr_mult)
+    ConvBNLayer(net, "fc7",  "fc7_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
+        lr_mult=lr_mult)
+    net['fc7_us'] = L.Interp(net['fc7_reduce'],interp_param={'height':64,'width':64})
+    net['conv7_2_us'] = L.Interp(net['conv7_2'],interp_param={'height':64,'width':64})   
+
+    net['fea_concat'] = L.Concat(net['conv4_3_reduce'],net['fc7_us'],net['conv7_2_us'],axis = 1)
+    net['fea_concat_bn'] = L.BatchNorm(net['fea_concat'],in_place=True)
+    #64
+    ConvBNLayer(net,'fea_concat_bn','fea_concat_bn_ds_1',use_batchnorm,use_relu,512,3,1,1,lr_mult=lr_mult)
+    #32
+    ConvBNLayer(net,'fea_concat_bn_ds_1','fea_concat_bn_ds_2',use_batchnorm,use_relu,512,3,1,2,lr_mult=lr_mult)
+    #16
+    ConvBNLayer(net,'fea_concat_bn_ds_2','fea_concat_bn_ds_4',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    #8
+    ConvBNLayer(net,'fea_concat_bn_ds_4','fea_concat_bn_ds_8',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    #4
+    ConvBNLayer(net,'fea_concat_bn_ds_8','fea_concat_bn_ds_16',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    #2
+    ConvBNLayer(net,'fea_concat_bn_ds_16','fea_concat_bn_ds_32',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    #1
+    ConvBNLayer(net,'fea_concat_bn_ds_32','fea_concat_bn_ds_64',use_batchnorm,use_relu,256,4,1,1,lr_mult=lr_mult)
 
     return net
 
@@ -75,18 +111,18 @@ caffe_root = os.getcwd()
 run_soon = True
 # Set true if you want to load from most recently saved snapshot.
 # Otherwise, we will load from the pretrain_model defined below.
-resume_training = False
+resume_training = True
 # If true, Remove old model files.
 remove_old_models = False
 
-# The database file for training data. Created by data/coco/create_data.sh
+# The database file for training data. Created by data/VOC0712/create_data.sh
 train_data = "/home/super/Database/MSCOCO_LMDB/coco_train_lmdb"
-# The database file for testing data. Created by data/coco/create_data.sh
-#test_data = "/home/super/Database/MSCOCO_LMDB/coco_minival_lmdb"
+# The database file for testing data. Created by data/VOC0712/create_data.sh
 test_data = "/home/super/Database/MSCOCO/lmdb/coco_testdev2017_lmdb"
+
 # Specify the batch sampler.
-resize_width = 300
-resize_height = 300
+resize_width = 512
+resize_height = 512
 resize = "{}x{}".format(resize_width, resize_height)
 batch_sampler = [
         {
@@ -177,7 +213,6 @@ batch_sampler = [
 train_transform_param = {
         'mirror': True,
         'mean_value': [104, 117, 123],
-        'force_color': True,
         'resize_param': {
                 'prob': 1,
                 'resize_mode': P.Resize.WARP,
@@ -214,7 +249,6 @@ train_transform_param = {
         }
 test_transform_param = {
         'mean_value': [104, 117, 123],
-        'force_color': True,
         'resize_param': {
                 'prob': 1,
                 'resize_mode': P.Resize.WARP,
@@ -236,18 +270,19 @@ else:
     base_lr = 0.00004
 
 # Modify the job name if you want.
-job_name = "SSD_{}".format(resize)
+job_name = "SSD_FPN_NO33_WOP{}".format(resize)
 # The name of the model. Modify it if you want.
-model_name = "VGG_coco_{}".format(job_name)
+model_name = "VGG_COCO_{}".format(job_name)
 
+date = '1025'
 # Directory which stores the model .prototxt file.
-save_dir = "models/VGGNet/coco/{}".format(job_name)
+save_dir = "models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the snapshot of models.
-snapshot_dir = "models/VGGNet/coco/{}".format(job_name)
+snapshot_dir = "ssd_models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the job script and log file.
-job_dir = "jobs/VGGNet/coco/{}".format(job_name)
+job_dir = "jobs/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the detection results.
-output_result_dir = "./predict_ss/"
+output_result_dir = './predict_ss'
 
 # model definition files.
 train_net_file = "{}/train.prototxt".format(save_dir)
@@ -259,11 +294,12 @@ snapshot_prefix = "{}/{}".format(snapshot_dir, model_name)
 # job script path.
 job_file = "{}/{}.sh".format(job_dir, model_name)
 
-# Stores the test image names and sizes. Created by data/coco/create_list.sh
-#name_size_file = "data/coco/minival2014_name_size.txt"
+# Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
 name_size_file = "data/coco/test-dev2017_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
-pretrain_model = "/home/super/workspace/zuoxin/CAFFE_SSD/ssd_models/COCO/VGG_coco_SSD_300x300_iter_400000.caffemodel"
+#pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/models/VGGNet/VOC0712/SSD_512x512/VGG_VOC0712_SSD_512x512_iter_120000.caffemodel"
+#pretrain_model = "ssd_models/VGG_VOC0712_SSD_512x512_iter_120000.caffemodel"
+pretrain_model = "ssd_models/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
 # Stores LabelMapItem.
 label_map_file = "data/coco/labelmap_coco.prototxt"
 
@@ -271,7 +307,7 @@ label_map_file = "data/coco/labelmap_coco.prototxt"
 num_classes = 81
 share_location = True
 background_label_id=0
-train_on_diff_gt = False
+train_on_diff_gt = True
 normalization_mode = P.Loss.VALID
 code_type = P.PriorBox.CENTER_SIZE
 ignore_cross_boundary_bbox = False
@@ -301,14 +337,16 @@ loss_param = {
 
 # parameters for generating priors.
 # minimum dimension of input image
-min_dim = 300
-# conv4_3 ==> 38 x 38
-# fc7 ==> 19 x 19
-# conv6_2 ==> 10 x 10
-# conv7_2 ==> 5 x 5
-# conv8_2 ==> 3 x 3
-# conv9_2 ==> 1 x 1
-mbox_source_layers = ['conv4_3', 'fc7', 'conv6_2', 'conv7_2', 'conv8_2', 'conv9_2']
+min_dim = 512
+# conv4_3 ==> 64 x 64
+# fc7 ==> 32 x 32
+# conv6_2 ==> 16 x 16
+# conv7_2 ==> 8 x 8
+# conv8_2 ==> 4 x 4
+# conv9_2 ==> 2 x 2
+# conv10_2 ==> 1 x 1
+mbox_source_layers = ['fea_concat_bn_ds_1','fea_concat_bn_ds_2','fea_concat_bn_ds_4','fea_concat_bn_ds_8','fea_concat_bn_ds_16','fea_concat_bn_ds_32','fea_concat_bn_ds_64']
+#mbox_source_layers = ['fea_concat_bn_ds_1','fea_concat_bn_ds_2','fea_concat_bn_ds_4','fea_concat_bn_ds_8','fea_concat_bn_ds_16','fea_concat_bn_ds_32','fea_concat_bn_ds_64']
 # in percent %
 min_ratio = 15
 max_ratio = 90
@@ -320,10 +358,14 @@ for ratio in xrange(min_ratio, max_ratio + 1, step):
   max_sizes.append(min_dim * (ratio + step) / 100.)
 min_sizes = [min_dim * 7 / 100.] + min_sizes
 max_sizes = [min_dim * 15 / 100.] + max_sizes
-steps = [8, 16, 32, 64, 100, 300]
-aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
+#min_sizes = min_sizes+min_sizes
+#max_sizes = max_sizes+max_sizes
+#steps = [8, 16, 32, 64, 128, 256, 512]
+steps = []
+aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2], [2]]
+#aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2], [2],]
 # L2 normalize conv4_3.
-normalizations = [20, -1, -1, -1, -1, -1]
+normalizations = [-1, -1, -1, -1, -1, -1, -1]
 # variance used to encode/decode prior bboxes.
 if code_type == P.PriorBox.CENTER_SIZE:
   prior_variance = [0.1, 0.1, 0.2, 0.2]
@@ -339,7 +381,7 @@ gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
 # Divide the mini-batch to different GPUs.
-batch_size = 32
+batch_size = 1
 accum_batch_size = 32
 iter_size = accum_batch_size / batch_size
 solver_mode = P.Solver.CPU
@@ -362,7 +404,7 @@ elif normalization_mode == P.Loss.FULL:
 
 # Evaluate on whole test set.
 num_test_image = 20288
-test_batch_size = 8
+test_batch_size = 1
 test_iter = num_test_image / test_batch_size
 
 solver_param = {
@@ -370,12 +412,12 @@ solver_param = {
     'base_lr': base_lr,
     'weight_decay': 0.0005,
     'lr_policy': "multistep",
-    'stepvalue': [280000, 360000, 400000],
+    'stepvalue': [280000, 320000, 360000],
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 400000,
-    'snapshot': 40000,
+    'max_iter': 380000,
+    'snapshot': 5000,
     'display': 10,
     'average_loss': 10,
     'type': "SGD",
@@ -388,7 +430,8 @@ solver_param = {
     'test_interval': 1,
     'eval_type': "detection",
     'ap_version': "11point",
-    'test_initialization': False,
+    'test_initialization': True,
+    'show_per_class_result': True,
     }
 
 # parameters for generating detection output.
@@ -399,7 +442,7 @@ det_out_param = {
     'nms_param': {'nms_threshold': 0.45, 'top_k': 400},
     'save_output_param': {
         'output_directory': output_result_dir,
-        'output_name_prefix': "detections_test-dev2017_ssd300_results",
+        'output_name_prefix': "detections_test-dev2017_fssd512_results",
         'output_format': "COCO",
         'label_map_file': label_map_file,
         'name_size_file': name_size_file,
@@ -414,7 +457,7 @@ det_out_param = {
 det_eval_param = {
     'num_classes': num_classes,
     'background_label_id': background_label_id,
-    'overlap_threshold': 0.5,
+    'overlap_threshold': 0.75,
     'evaluate_difficult_gt': False,
     'name_size_file': name_size_file,
     }
@@ -556,15 +599,17 @@ if remove_old_models:
         os.remove("{}/{}".format(snapshot_dir, file))
 
 # Create job file.
+import time
+timestamp = time.strftime('%Y%m%d%H%M%S')
 with open(job_file, 'w') as f:
   f.write('cd {}\n'.format(caffe_root))
   f.write('./build/tools/caffe train \\\n')
   f.write('--solver="{}" \\\n'.format(solver_file))
   f.write(train_src_param)
   if solver_param['solver_mode'] == P.Solver.GPU:
-    f.write('--gpu {} 2>&1 | tee {}/{}.log\n'.format(gpus, job_dir, model_name))
+    f.write('--gpu {} 2>&1 | tee {}/{}_{}.log\n'.format(gpus, job_dir, model_name,timestamp))
   else:
-    f.write('2>&1 | tee {}/{}.log\n'.format(job_dir, model_name))
+    f.write('2>&1 | tee {}/{}_{}.log\n'.format(job_dir, model_name,timestamp))
 
 # Copy the python script to job_dir.
 py_file = os.path.abspath(__file__)

@@ -10,62 +10,31 @@ import os
 import shutil
 import stat
 import subprocess
-
-# Add extra layers on top of a "base" network (e.g. VGGNet or Inception).
+import sys
 def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     use_relu = True
-
     # Add additional convolutional layers.
     # 19 x 19
     from_layer = net.keys()[-1]
-
-    # TODO(weiliu89): Construct the name using the last layer to avoid duplication.
-    # 10 x 10
-    out_layer = "conv6_1"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 1, 0, 1,
+    #net['conv3_3_ds'] = L.Pooling(net['conv3_3'], pool=P.Pooling.MAX, pad=0, kernel_size=2, stride=2)
+   
+    ConvBNLayer(net, "First",  "First_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
         lr_mult=lr_mult)
-
-    from_layer = out_layer
-    out_layer = "conv6_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 512, 3, 1, 2,
+    ConvBNLayer(net, "Second",  "Second_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
         lr_mult=lr_mult)
+    ConvBNLayer(net, "Third",  "Third_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
+        lr_mult=lr_mult)
+    net['Second_us'] = L.Interp(net['Second_reduce'],interp_param={'height':38,'width':38})
+    net['Third_us'] = L.Interp(net['Third_reduce'],interp_param={'height':38,'width':38})   
 
-    # 5 x 5
-    from_layer = out_layer
-    out_layer = "conv7_1"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=lr_mult)
-
-    from_layer = out_layer
-    out_layer = "conv7_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,
-      lr_mult=lr_mult)
-
-    # 3 x 3
-    from_layer = out_layer
-    out_layer = "conv8_1"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=lr_mult)
-
-    from_layer = out_layer
-    out_layer = "conv8_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 0, 1,
-      lr_mult=lr_mult)
-
-    # 1 x 1
-    from_layer = out_layer
-    out_layer = "conv9_1"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=lr_mult)
-
-    from_layer = out_layer
-    out_layer = "conv9_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 0, 1,
-      lr_mult=lr_mult)
-
-    return net
-
-
+    net['fea_concat'] = L.Concat(net['First_reduce'],net['Second_us'],net['Third_us'],axis = 1)
+    #net['fea_concat_bn'] = L.BatchNorm(net['fea_concat'],in_place=True)
+    ConvBNLayer(net,'fea_concat','fea_concat_bn_ds_1',use_batchnorm,use_relu,512,3,1,1,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_1','fea_concat_bn_ds_2',use_batchnorm,use_relu,512,3,1,2,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_2','fea_concat_bn_ds_4',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_4','fea_concat_bn_ds_8',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_8','fea_concat_bn_ds_16',use_batchnorm,use_relu,256,3,0,1,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_16','fea_concat_bn_ds_32',use_batchnorm,use_relu,256,3,0,1,lr_mult=lr_mult)
 ### Modify the following parameters accordingly ###
 # The directory which contains the caffe code.
 # We assume you are running the script at the CAFFE_ROOT.
@@ -74,16 +43,15 @@ caffe_root = os.getcwd()
 # Set true if you want to start training right after generating all files.
 run_soon = True
 # Set true if you want to load from most recently saved snapshot.
-# Otherwise, we will load from the pretrain_model defined below.
-resume_training = False
+# Otherwise, we will train from scratch.
+resume_training = True
 # If true, Remove old model files.
 remove_old_models = False
 
-# The database file for training data. Created by data/coco/create_data.sh
-train_data = "/home/super/Database/MSCOCO_LMDB/coco_train_lmdb"
-# The database file for testing data. Created by data/coco/create_data.sh
-#test_data = "/home/super/Database/MSCOCO_LMDB/coco_minival_lmdb"
-test_data = "/home/super/Database/MSCOCO/lmdb/coco_testdev2017_lmdb"
+# The database file for training data. Created by data/VOC0712/create_data.sh
+train_data = "/home/super/Database/VOC0712/lmdb/VOC0712_trainval_lmdb"
+# The database file for testing data. Created by data/VOC0712/create_data.sh
+test_data = "/home/super/Database/VOC0712/lmdb/VOC0712_test_lmdb"
 # Specify the batch sampler.
 resize_width = 300
 resize_height = 300
@@ -177,7 +145,6 @@ batch_sampler = [
 train_transform_param = {
         'mirror': True,
         'mean_value': [104, 117, 123],
-        'force_color': True,
         'resize_param': {
                 'prob': 1,
                 'resize_mode': P.Resize.WARP,
@@ -214,7 +181,6 @@ train_transform_param = {
         }
 test_transform_param = {
         'mean_value': [104, 117, 123],
-        'force_color': True,
         'resize_param': {
                 'prob': 1,
                 'resize_mode': P.Resize.WARP,
@@ -226,7 +192,7 @@ test_transform_param = {
 
 # If true, use batch norm for all newly added layers.
 # Currently only the non batch norm version has been tested.
-use_batchnorm = False
+use_batchnorm = True
 lr_mult = 1
 # Use different initial learning rate.
 if use_batchnorm:
@@ -234,20 +200,20 @@ if use_batchnorm:
 else:
     # A learning rate for batch_size = 1, num_gpus = 1.
     base_lr = 0.00004
-
+date = '1026'
 # Modify the job name if you want.
-job_name = "SSD_{}".format(resize)
+job_name = "DSOD300_{}".format(resize)
 # The name of the model. Modify it if you want.
-model_name = "VGG_coco_{}".format(job_name)
+model_name = "DSOD300_VOC0712_{}".format(job_name)
 
 # Directory which stores the model .prototxt file.
-save_dir = "models/VGGNet/coco/{}".format(job_name)
+save_dir = "models/DSOD300/VOC0712/{}_{}".format(job_name,date)
 # Directory which stores the snapshot of models.
-snapshot_dir = "models/VGGNet/coco/{}".format(job_name)
+snapshot_dir = "ssd_models/DSOD300/VOC0712/{}_{}".format(job_name,date)
 # Directory which stores the job script and log file.
-job_dir = "jobs/VGGNet/coco/{}".format(job_name)
+job_dir = "jobs/DSOD300/VOC0712/{}_{}".format(job_name,date)
 # Directory which stores the detection results.
-output_result_dir = "./predict_ss/"
+output_result_dir = job_dir+'/predict_ss'
 
 # model definition files.
 train_net_file = "{}/train.prototxt".format(save_dir)
@@ -259,19 +225,17 @@ snapshot_prefix = "{}/{}".format(snapshot_dir, model_name)
 # job script path.
 job_file = "{}/{}.sh".format(job_dir, model_name)
 
-# Stores the test image names and sizes. Created by data/coco/create_list.sh
-#name_size_file = "data/coco/minival2014_name_size.txt"
-name_size_file = "data/coco/test-dev2017_name_size.txt"
-# The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
-pretrain_model = "/home/super/workspace/zuoxin/CAFFE_SSD/ssd_models/COCO/VGG_coco_SSD_300x300_iter_400000.caffemodel"
+# Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
+name_size_file = "data/VOC0712/test_name_size.txt"
+
 # Stores LabelMapItem.
-label_map_file = "data/coco/labelmap_coco.prototxt"
+label_map_file = "data/VOC0712/labelmap_voc.prototxt"
 
 # MultiBoxLoss parameters.
-num_classes = 81
+num_classes = 21
 share_location = True
 background_label_id=0
-train_on_diff_gt = False
+train_on_diff_gt = True
 normalization_mode = P.Loss.VALID
 code_type = P.PriorBox.CENTER_SIZE
 ignore_cross_boundary_bbox = False
@@ -302,15 +266,15 @@ loss_param = {
 # parameters for generating priors.
 # minimum dimension of input image
 min_dim = 300
-# conv4_3 ==> 38 x 38
-# fc7 ==> 19 x 19
-# conv6_2 ==> 10 x 10
-# conv7_2 ==> 5 x 5
-# conv8_2 ==> 3 x 3
-# conv9_2 ==> 1 x 1
-mbox_source_layers = ['conv4_3', 'fc7', 'conv6_2', 'conv7_2', 'conv8_2', 'conv9_2']
+# First ==> 38 x 38
+# Second ==> 19 x 19
+# Third ==> 10 x 10
+# Fourth ==> 5 x 5
+# Fifth ==> 3 x 3
+# Sixth ==> 1 x 1
+mbox_source_layers = ['fea_concat_bn_ds_1','fea_concat_bn_ds_2','fea_concat_bn_ds_4','fea_concat_bn_ds_8','fea_concat_bn_ds_16','fea_concat_bn_ds_32']
 # in percent %
-min_ratio = 15
+min_ratio = 20
 max_ratio = 90
 step = int(math.floor((max_ratio - min_ratio) / (len(mbox_source_layers) - 2)))
 min_sizes = []
@@ -318,12 +282,12 @@ max_sizes = []
 for ratio in xrange(min_ratio, max_ratio + 1, step):
   min_sizes.append(min_dim * ratio / 100.)
   max_sizes.append(min_dim * (ratio + step) / 100.)
-min_sizes = [min_dim * 7 / 100.] + min_sizes
-max_sizes = [min_dim * 15 / 100.] + max_sizes
+min_sizes = [min_dim * 10 / 100.] + min_sizes
+max_sizes = [min_dim * 20 / 100.] + max_sizes
 steps = [8, 16, 32, 64, 100, 300]
 aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
-# L2 normalize conv4_3.
-normalizations = [20, -1, -1, -1, -1, -1]
+# L2 normalize.
+normalizations = [-1, -1, -1, -1, -1, -1]
 # variance used to encode/decode prior bboxes.
 if code_type == P.PriorBox.CENTER_SIZE:
   prior_variance = [0.1, 0.1, 0.2, 0.2]
@@ -334,13 +298,13 @@ clip = False
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "4"
+gpus = "6,7"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
 # Divide the mini-batch to different GPUs.
-batch_size = 32
-accum_batch_size = 32
+batch_size = 8
+accum_batch_size = 128
 iter_size = accum_batch_size / batch_size
 solver_mode = P.Solver.CPU
 device_id = 0
@@ -361,21 +325,23 @@ elif normalization_mode == P.Loss.FULL:
   base_lr *= 2000.
 
 # Evaluate on whole test set.
-num_test_image = 20288
-test_batch_size = 8
-test_iter = num_test_image / test_batch_size
+num_test_image = 4952
+test_batch_size = 2
+# Ideally test_batch_size should be divisible by num_test_image,
+# otherwise mAP will be slightly off the true value.
+test_iter = int(math.ceil(float(num_test_image) / test_batch_size))
 
 solver_param = {
     # Train parameters
-    'base_lr': base_lr,
+    'base_lr': 10*base_lr,
     'weight_decay': 0.0005,
     'lr_policy': "multistep",
-    'stepvalue': [280000, 360000, 400000],
+    'stepvalue': [20000, 40000, 60000, 80000, 100000],
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 400000,
-    'snapshot': 40000,
+    'max_iter': 100000,
+    'snapshot': 2000,
     'display': 10,
     'average_loss': 10,
     'type': "SGD",
@@ -385,10 +351,11 @@ solver_param = {
     'snapshot_after_train': True,
     # Test parameters
     'test_iter': [test_iter],
-    'test_interval': 1,
+    'test_interval': 2000,
     'eval_type': "detection",
     'ap_version': "11point",
-    'test_initialization': False,
+    'test_initialization': True,
+    'show_per_class_result': True,
     }
 
 # parameters for generating detection output.
@@ -399,8 +366,8 @@ det_out_param = {
     'nms_param': {'nms_threshold': 0.45, 'top_k': 400},
     'save_output_param': {
         'output_directory': output_result_dir,
-        'output_name_prefix': "detections_test-dev2017_ssd300_results",
-        'output_format': "COCO",
+        'output_name_prefix': "comp4_det_test_",
+        'output_format': "VOC",
         'label_map_file': label_map_file,
         'name_size_file': name_size_file,
         'num_test_image': num_test_image,
@@ -424,7 +391,6 @@ det_eval_param = {
 check_if_exist(train_data)
 check_if_exist(test_data)
 check_if_exist(label_map_file)
-check_if_exist(pretrain_model)
 make_if_not_exist(save_dir)
 make_if_not_exist(job_dir)
 make_if_not_exist(snapshot_dir)
@@ -435,11 +401,8 @@ net.data, net.label = CreateAnnotatedDataLayer(train_data, batch_size=batch_size
         train=True, output_label=True, label_map_file=label_map_file,
         transform_param=train_transform_param, batch_sampler=batch_sampler)
 
-VGGNetBody(net, from_layer='data', fully_conv=True, reduced=True, dilated=True,
-    dropout=False)
-
-AddExtraLayers(net, use_batchnorm, lr_mult=lr_mult)
-
+DSOD300_V3_Body(net, from_layer='data')
+AddExtraLayers(net,use_batchnorm = True)
 mbox_layers = CreateMultiBoxHead(net, data_layer='data', from_layers=mbox_source_layers,
         use_batchnorm=use_batchnorm, min_sizes=min_sizes, max_sizes=max_sizes,
         aspect_ratios=aspect_ratios, steps=steps, normalizations=normalizations,
@@ -464,11 +427,8 @@ net.data, net.label = CreateAnnotatedDataLayer(test_data, batch_size=test_batch_
         train=False, output_label=True, label_map_file=label_map_file,
         transform_param=test_transform_param)
 
-VGGNetBody(net, from_layer='data', fully_conv=True, reduced=True, dilated=True,
-    dropout=False)
-
-AddExtraLayers(net, use_batchnorm, lr_mult=lr_mult)
-
+DSOD300_V3_Body(net, from_layer='data')
+AddExtraLayers(net,use_batchnorm = True)
 mbox_layers = CreateMultiBoxHead(net, data_layer='data', from_layers=mbox_source_layers,
         use_batchnorm=use_batchnorm, min_sizes=min_sizes, max_sizes=max_sizes,
         aspect_ratios=aspect_ratios, steps=steps, normalizations=normalizations,
@@ -536,7 +496,6 @@ for file in os.listdir(snapshot_dir):
     if iter > max_iter:
       max_iter = iter
 
-train_src_param = '--weights="{}" \\\n'.format(pretrain_model)
 if resume_training:
   if max_iter > 0:
     train_src_param = '--snapshot="{}_iter_{}.solverstate" \\\n'.format(snapshot_prefix, max_iter)
@@ -554,17 +513,18 @@ if remove_old_models:
       iter = int(basename.split("{}_iter_".format(model_name))[1])
       if max_iter > iter:
         os.remove("{}/{}".format(snapshot_dir, file))
-
+import time
+timestamp = time.strftime('%Y%m%d%H%M%S')
 # Create job file.
 with open(job_file, 'w') as f:
   f.write('cd {}\n'.format(caffe_root))
   f.write('./build/tools/caffe train \\\n')
   f.write('--solver="{}" \\\n'.format(solver_file))
-  f.write(train_src_param)
+  # f.write(train_src_param)
   if solver_param['solver_mode'] == P.Solver.GPU:
-    f.write('--gpu {} 2>&1 | tee {}/{}.log\n'.format(gpus, job_dir, model_name))
+    f.write('--gpu {} 2>&1 | tee {}/{}_{}.log\n'.format(gpus, job_dir, model_name,timestamp))
   else:
-    f.write('2>&1 | tee {}/{}.log\n'.format(job_dir, model_name))
+    f.write('2>&1 | tee {}/{}_{}.log\n'.format(job_dir, model_name,timestamp))
 
 # Copy the python script to job_dir.
 py_file = os.path.abspath(__file__)

@@ -1,4 +1,6 @@
 from __future__ import print_function
+import sys
+sys.path.append('/home/super/workspace/zuoxin/CAFFE_SSD/python/')
 import caffe
 from caffe.model_libs import *
 from google.protobuf import text_format
@@ -72,7 +74,7 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 4, 1, 1,
       lr_mult=1)
     '''
-    net['conv3_3_ds'] = L.Pooling(net['conv3_3'], pool=P.Pooling.MAX, pad=0, kernel_size=2, stride=2)
+    #net['conv3_3_ds'] = L.Pooling(net['conv3_3'], pool=P.Pooling.MAX, pad=0, kernel_size=2, stride=2)
     ConvBNLayer(net, "conv4_3",  "conv4_3_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
         lr_mult=lr_mult)
     ConvBNLayer(net, "fc7",  "fc7_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
@@ -80,7 +82,7 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     net['fc7_us'] = L.Interp(net['fc7_reduce'],interp_param={'height':64,'width':64})
     net['conv7_2_us'] = L.Interp(net['conv7_2'],interp_param={'height':64,'width':64})   
 
-    net['fea_concat'] = L.Concat(net['conv3_3_ds'],net['conv4_3_reduce'],net['fc7_us'],net['conv7_2_us'],axis = 1)
+    net['fea_concat'] = L.Concat(net['conv4_3_reduce'],net['fc7_us'],net['conv7_2_us'],axis = 1)
     net['fea_concat_bn'] = L.BatchNorm(net['fea_concat'],in_place=True)
     #64
     ConvBNLayer(net,'fea_concat_bn','fea_concat_bn_ds_1',use_batchnorm,use_relu,512,3,1,1,lr_mult=lr_mult)
@@ -114,9 +116,9 @@ resume_training = True
 remove_old_models = False
 
 # The database file for training data. Created by data/VOC0712/create_data.sh
-train_data = "/home/foto1/DataBase/VOC0712/lmdb/VOC0712_trainval_lmdb"
+train_data = "/home/super/Database/VOC0712/lmdb/VOC0712_trainvaltest_lmdb"
 # The database file for testing data. Created by data/VOC0712/create_data.sh
-test_data = "/home/foto1/DataBase/VOC0712/lmdb/VOC0712_test_lmdb"
+test_data = "/home/super/Database/VOC0712/lmdb/VOC0712_test_lmdb"
 # Specify the batch sampler.
 resize_width = 512
 resize_height = 512
@@ -267,15 +269,15 @@ else:
     base_lr = 0.00004
 
 # Modify the job name if you want.
-job_name = "SSD_FPN_WO_{}".format(resize)
+job_name = "SSD_FPN_COCOP_{}".format(resize)
 # The name of the model. Modify it if you want.
-model_name = "VGG_VOC0712_{}".format(job_name)
+model_name = "VGG_VOC0712++_{}".format(job_name)
 
-date = '1014'
+date = '1106'
 # Directory which stores the model .prototxt file.
 save_dir = "models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the snapshot of models.
-snapshot_dir = "/mnt/lvmhdd1/zuoxin/ssd_models/VGGNet/{}/{}".format(job_name,date)
+snapshot_dir = "ssd_models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the job script and log file.
 job_dir = "jobs/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the detection results.
@@ -295,7 +297,9 @@ job_file = "{}/{}.sh".format(job_dir, model_name)
 name_size_file = "data/VOC0712/test_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
 #pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/models/VGGNet/VOC0712/SSD_512x512/VGG_VOC0712_SSD_512x512_iter_120000.caffemodel"
-pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/models/VGGNet/VOC0712/SSD_512x512/VGG_VOC0712_SSD_512x512_iter_120000.caffemodel"
+pretrain_model = "ssd_models/VGG_coco_voc_SSD_512x512.caffemodel"
+#pretrain_model = "ssd_models/VGGNet/SSD_FPN_COCOP_512x512/1031/VGG_VOC0712++_SSD_FPN_COCOP_512x512_iter_65000.caffemodel"
+#pretrain_model = "ssd_models/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
 # Stores LabelMapItem.
 label_map_file = "data/VOC0712/labelmap_voc.prototxt"
 
@@ -372,7 +376,7 @@ clip = False
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "0,1,2,3"
+gpus = "0,1,2,3,4,5,6,7"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
@@ -405,15 +409,15 @@ test_iter = num_test_image / test_batch_size
 
 solver_param = {
     # Train parameters
-    'base_lr': 0.0005,
+    'base_lr': base_lr*0.1,
     'weight_decay': 0.0005,
     'lr_policy': "multistep",
-    'stepvalue': [40000, 60000, 80000],
+    'stepvalue': [40000,60000, 80000],
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
     'max_iter': 80000,
-    'snapshot': 10000,
+    'snapshot': 5000,
     'display': 10,
     'average_loss': 10,
     'type': "SGD",
@@ -571,6 +575,8 @@ max_iter = 0
 for file in os.listdir(snapshot_dir):
   if file.endswith(".solverstate"):
     basename = os.path.splitext(file)[0]
+    if model_name not in basename:
+	continue
     iter = int(basename.split("{}_iter_".format(model_name))[1])
     if iter > max_iter:
       max_iter = iter

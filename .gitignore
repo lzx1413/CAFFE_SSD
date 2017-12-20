@@ -101,3 +101,7 @@ MANIFEST-*
 jobs
 temp
 examples/*/*lmdb
+predict_ss
+predict_ss_coco_fpn
+ssd_models
+test-dev2017.txt
