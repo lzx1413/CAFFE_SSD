@@ -1,13 +1,9 @@
-# SSD: Single Shot MultiBox Detector
+# FSSD: Feature Fusion Single Shot Multibox Detector
 
 [![Build Status](https://travis-ci.org/weiliu89/caffe.svg?branch=ssd)](https://travis-ci.org/weiliu89/caffe)
 [![License](https://img.shields.io/badge/license-BSD-blue.svg)](LICENSE)
 
-By [Wei Liu](http://www.cs.unc.edu/~wliu/), [Dragomir Anguelov](https://www.linkedin.com/in/dragomiranguelov), [Dumitru Erhan](http://research.google.com/pubs/DumitruErhan.html), [Christian Szegedy](http://research.google.com/pubs/ChristianSzegedy.html), [Scott Reed](http://www-personal.umich.edu/~reedscot/), [Cheng-Yang Fu](http://www.cs.unc.edu/~cyfu/), [Alexander C. Berg](http://acberg.com).
-
-### Introduction
-
-SSD is an unified framework for object detection with a single network. You can use the code to train/evaluate a network for object detection task. For more details, please refer to our [arXiv paper](http://arxiv.org/abs/1512.02325) and our [slide](http://www.cs.unc.edu/~wliu/papers/ssd_eccv2016_slide.pdf).
+[arXiv paper](http://arxiv.org/abs/1512.02325) 
 
 <p align="center">
 <img src="http://www.cs.unc.edu/~wliu/papers/ssd.png" alt="SSD Framework" width="600px">
@@ -26,6 +22,11 @@ SSD is an unified framework for object detection with a single network. You can 
 </p>
 
 _Note: SSD300* and SSD512* are the latest models. Current code should reproduce these results._
+
+| method           | VOC2007 test *mAP*(VOC07+12+COCO) | VOC2012 test *mAP* (VOC07++12+COCO) |COCO test-dev|
+| :--------------- | :-------------------------------: | :---------------------------------: | :---------------------------------:|
+| FSSD300* (VGG16) |               82.7                |                82.0                 |27.1:47.7:27.8|
+| FSSD512* (VGG16) |               84.5                |                84.2                 |31.8:52.8:33.5|
 
 ### Citing SSD
 
@@ -94,6 +95,7 @@ Please cite SSD in your publications if it helps your research:
   ```
 
 ### Train/Eval
+Our FSSD is in example/fssd/ folder. Just replace the ssd with fssd in the following scripts.
 1. Train your model and evaluate the model on the fly.
   ```Shell
   # It will create model definition files and save snapshot models in:
