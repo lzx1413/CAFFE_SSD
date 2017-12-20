@@ -10,20 +10,23 @@ import os
 import shutil
 import stat
 import subprocess
-import sys
 
 # Add extra layers on top of a "base" network (e.g. VGGNet or Inception).
 def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     use_relu = True
-    # 32 x 32
-    from_layer = net.keys()[-1]
-   
 
+    # Add additional convolutional layers.
+    # 19 x 19
+    from_layer = net.keys()[-1]
+    #net['conv3_3_ds'] = L.Pooling(net['conv3_3'], pool=P.Pooling.MAX, pad=0, kernel_size=2, stride=2)
+   
+    ConvBNLayer(net, "conv4_3",  "conv4_3_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
+        lr_mult=lr_mult)
    
 
 
     # TODO(weiliu89): Construct the name using the last layer to avoid duplication.
-    # 32 x 32
+    # 10 x 10
     out_layer = "conv6_1"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 1, 0, 1,
         lr_mult=1)
@@ -32,72 +35,29 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     out_layer = "conv6_2"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 512, 3, 1, 1,
         lr_mult=1)
+
+    # 5 x 5
     from_layer = out_layer
     out_layer = "conv7_1"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
       lr_mult=1)
+
     from_layer = out_layer
     out_layer = "conv7_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,lr_mult = 1)
-
-     # 4 x 4
-    '''
-    from_layer = out_layer
-    out_layer = "conv8_1"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=1)
-
-    from_layer = out_layer
-    out_layer = "conv8_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,
-      lr_mult=1)
-
-    # 2 x 2
-    from_layer = out_layer
-    out_layer = "conv9_1"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=1)
-
-    from_layer = out_layer
-    out_layer = "conv9_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,
-      lr_mult=1)
-
-    # 1 x 1
-    from_layer = out_layer
-    out_layer = "conv10_1"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=1)
-
-    from_layer = out_layer
-    out_layer = "conv10_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 4, 1, 1,
-      lr_mult=1)
-    '''
-    #net['conv3_3_ds'] = L.Pooling(net['conv3_3'], pool=P.Pooling.MAX, pad=0, kernel_size=2, stride=2)
-    ConvBNLayer(net, "conv4_3",  "conv4_3_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
-        lr_mult=lr_mult)
+    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,lr_mult = lr_mult)
     ConvBNLayer(net, "fc7",  "fc7_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
         lr_mult=lr_mult)
-    net['fc7_us'] = L.Interp(net['fc7_reduce'],interp_param={'height':64,'width':64})
-    net['conv7_2_us'] = L.Interp(net['conv7_2'],interp_param={'height':64,'width':64})   
+    net['fc7_us'] = L.Interp(net['fc7_reduce'],interp_param={'height':38,'width':38})
+    net['conv7_2_us'] = L.Interp(net['conv7_2'],interp_param={'height':38,'width':38})   
 
     net['fea_concat'] = L.Concat(net['conv4_3_reduce'],net['fc7_us'],net['conv7_2_us'],axis = 1)
     net['fea_concat_bn'] = L.BatchNorm(net['fea_concat'],in_place=True)
-    #64
     ConvBNLayer(net,'fea_concat_bn','fea_concat_bn_ds_1',use_batchnorm,use_relu,512,3,1,1,lr_mult=lr_mult)
-    #32
     ConvBNLayer(net,'fea_concat_bn_ds_1','fea_concat_bn_ds_2',use_batchnorm,use_relu,512,3,1,2,lr_mult=lr_mult)
-    #16
     ConvBNLayer(net,'fea_concat_bn_ds_2','fea_concat_bn_ds_4',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
-    #8
     ConvBNLayer(net,'fea_concat_bn_ds_4','fea_concat_bn_ds_8',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
-    #4
-    ConvBNLayer(net,'fea_concat_bn_ds_8','fea_concat_bn_ds_16',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
-    #2
-    ConvBNLayer(net,'fea_concat_bn_ds_16','fea_concat_bn_ds_32',use_batchnorm,use_relu,256,3,1,2,lr_mult=lr_mult)
-    #1
-    ConvBNLayer(net,'fea_concat_bn_ds_32','fea_concat_bn_ds_64',use_batchnorm,use_relu,256,4,1,1,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_8','fea_concat_bn_ds_16',use_batchnorm,use_relu,256,3,0,1,lr_mult=lr_mult)
+    ConvBNLayer(net,'fea_concat_bn_ds_16','fea_concat_bn_ds_32',use_batchnorm,use_relu,256,3,0,1,lr_mult=lr_mult)
 
     return net
 
@@ -115,13 +75,14 @@ resume_training = True
 # If true, Remove old model files.
 remove_old_models = False
 
-# The database file for training data. Created by data/VOC0712/create_data.sh
-train_data = "/home/super/Database/VOC0712/lmdb/VOC0712_trainvaltest_lmdb"
-# The database file for testing data. Created by data/VOC0712/create_data.sh
-test_data = "/home/super/Database/VOC0712/lmdb/VOC0712_test_lmdb"
+# The database file for training data. Created by data/coco/create_data.sh
+train_data = "/home/super/Database/MSCOCO_LMDB/coco_train_lmdb"
+# The database file for testing data. Created by data/coco/create_data.sh
+test_data = "/home/super/Database/MSCOCO_LMDB/coco_minival_lmdb"
+#test_data = "/home/super/Database/MSCOCO/lmdb/coco_testdev2017_lmdb"
 # Specify the batch sampler.
-resize_width = 512
-resize_height = 512
+resize_width = 300
+resize_height = 300
 resize = "{}x{}".format(resize_width, resize_height)
 batch_sampler = [
         {
@@ -212,6 +173,7 @@ batch_sampler = [
 train_transform_param = {
         'mirror': True,
         'mean_value': [104, 117, 123],
+        'force_color': True,
         'resize_param': {
                 'prob': 1,
                 'resize_mode': P.Resize.WARP,
@@ -248,6 +210,7 @@ train_transform_param = {
         }
 test_transform_param = {
         'mean_value': [104, 117, 123],
+        'force_color': True,
         'resize_param': {
                 'prob': 1,
                 'resize_mode': P.Resize.WARP,
@@ -260,7 +223,7 @@ test_transform_param = {
 # If true, use batch norm for all newly added layers.
 # Currently only the non batch norm version has been tested.
 use_batchnorm = False
-lr_mult = 2
+lr_mult = 1
 # Use different initial learning rate.
 if use_batchnorm:
     base_lr = 0.0004
@@ -269,11 +232,10 @@ else:
     base_lr = 0.00004
 
 # Modify the job name if you want.
-job_name = "SSD_FPN_COCOP_{}".format(resize)
+job_name = "FSSD_{}".format(resize)
 # The name of the model. Modify it if you want.
-model_name = "VGG_VOC0712++_{}".format(job_name)
-
-date = '1106'
+model_name = "VGG_COCO_{}".format(job_name)
+date = '1022'
 # Directory which stores the model .prototxt file.
 save_dir = "models/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the snapshot of models.
@@ -282,6 +244,7 @@ snapshot_dir = "ssd_models/VGGNet/{}/{}".format(job_name,date)
 job_dir = "jobs/VGGNet/{}/{}".format(job_name,date)
 # Directory which stores the detection results.
 output_result_dir = job_dir+'/predict_ss'
+#output_result_dir = ''
 
 # model definition files.
 train_net_file = "{}/train.prototxt".format(save_dir)
@@ -293,21 +256,19 @@ snapshot_prefix = "{}/{}".format(snapshot_dir, model_name)
 # job script path.
 job_file = "{}/{}.sh".format(job_dir, model_name)
 
-# Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
-name_size_file = "data/VOC0712/test_name_size.txt"
+## Stores the test image names and sizes. Created by data/coco/create_list.sh
+name_size_file = "data/coco/minival2014_name_size.txt"
+#name_size_file = "data/coco/test-dev2015_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
-#pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/models/VGGNet/VOC0712/SSD_512x512/VGG_VOC0712_SSD_512x512_iter_120000.caffemodel"
-pretrain_model = "ssd_models/VGG_coco_voc_SSD_512x512.caffemodel"
-#pretrain_model = "ssd_models/VGGNet/SSD_FPN_COCOP_512x512/1031/VGG_VOC0712++_SSD_FPN_COCOP_512x512_iter_65000.caffemodel"
-#pretrain_model = "ssd_models/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
+pretrain_model = "./ssd_models/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
 # Stores LabelMapItem.
-label_map_file = "data/VOC0712/labelmap_voc.prototxt"
+label_map_file = "data/coco/labelmap_coco.prototxt"
 
 # MultiBoxLoss parameters.
-num_classes = 21
+num_classes = 81
 share_location = True
 background_label_id=0
-train_on_diff_gt = True
+train_on_diff_gt = False
 normalization_mode = P.Loss.VALID
 code_type = P.PriorBox.CENTER_SIZE
 ignore_cross_boundary_bbox = False
@@ -337,16 +298,15 @@ loss_param = {
 
 # parameters for generating priors.
 # minimum dimension of input image
-min_dim = 512
-# conv4_3 ==> 64 x 64
-# fc7 ==> 32 x 32
-# conv6_2 ==> 16 x 16
-# conv7_2 ==> 8 x 8
-# conv8_2 ==> 4 x 4
-# conv9_2 ==> 2 x 2
-# conv10_2 ==> 1 x 1
-mbox_source_layers = ['fea_concat_bn_ds_1','fea_concat_bn_ds_2','fea_concat_bn_ds_4','fea_concat_bn_ds_8','fea_concat_bn_ds_16','fea_concat_bn_ds_32','fea_concat_bn_ds_64']
-#mbox_source_layers = ['fea_concat_bn_ds_1','fea_concat_bn_ds_2','fea_concat_bn_ds_4','fea_concat_bn_ds_8','fea_concat_bn_ds_16','fea_concat_bn_ds_32','fea_concat_bn_ds_64']
+min_dim = 300
+# conv4_3 ==> 38 x 38
+# fc7 ==> 19 x 19
+# conv6_2 ==> 10 x 10
+# conv7_2 ==> 5 x 5
+# conv8_2 ==> 3 x 3
+# conv9_2 ==> 1 x 1
+#mbox_source_layers = ['conv4_3', 'fc7', 'conv6_2', 'conv7_2', 'conv8_2', 'conv9_2']
+mbox_source_layers = ['fea_concat_bn_ds_1','fea_concat_bn_ds_2','fea_concat_bn_ds_4','fea_concat_bn_ds_8','fea_concat_bn_ds_16','fea_concat_bn_ds_32']
 # in percent %
 min_ratio = 15
 max_ratio = 90
@@ -358,14 +318,10 @@ for ratio in xrange(min_ratio, max_ratio + 1, step):
   max_sizes.append(min_dim * (ratio + step) / 100.)
 min_sizes = [min_dim * 7 / 100.] + min_sizes
 max_sizes = [min_dim * 15 / 100.] + max_sizes
-#min_sizes = min_sizes+min_sizes
-#max_sizes = max_sizes+max_sizes
-#steps = [8, 16, 32, 64, 128, 256, 512]
 steps = []
-aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2], [2]]
-#aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2], [2],]
+aspect_ratios = [[2], [2, 3], [2, 3], [2, 3], [2], [2]]
 # L2 normalize conv4_3.
-normalizations = [-1, -1, -1, -1, -1, -1, -1]
+normalizations = [-1, -1, -1, -1, -1, -1]
 # variance used to encode/decode prior bboxes.
 if code_type == P.PriorBox.CENTER_SIZE:
   prior_variance = [0.1, 0.1, 0.2, 0.2]
@@ -376,7 +332,7 @@ clip = False
 
 # Solver parameters.
 # Defining which GPUs to use.
-gpus = "0,1,2,3,4,5,6,7"
+gpus = "4,5,6,7"
 gpulist = gpus.split(",")
 num_gpus = len(gpulist)
 
@@ -403,20 +359,20 @@ elif normalization_mode == P.Loss.FULL:
   base_lr *= 2000.
 
 # Evaluate on whole test set.
-num_test_image = 4952
-test_batch_size = 1
+num_test_image = 5000
+test_batch_size = 8
 test_iter = num_test_image / test_batch_size
 
 solver_param = {
     # Train parameters
-    'base_lr': base_lr*0.1,
+    'base_lr': base_lr,
     'weight_decay': 0.0005,
     'lr_policy': "multistep",
-    'stepvalue': [40000,60000, 80000],
+    'stepvalue': [280000, 360000, 400000],
     'gamma': 0.1,
     'momentum': 0.9,
     'iter_size': iter_size,
-    'max_iter': 80000,
+    'max_iter': 400000,
     'snapshot': 5000,
     'display': 10,
     'average_loss': 10,
@@ -442,8 +398,8 @@ det_out_param = {
     'nms_param': {'nms_threshold': 0.45, 'top_k': 400},
     'save_output_param': {
         'output_directory': output_result_dir,
-        'output_name_prefix': "comp4_det_test_",
-        'output_format': "VOC",
+        'output_name_prefix': "detections_minival_fssd300_",
+        'output_format': "COCO",
         'label_map_file': label_map_file,
         'name_size_file': name_size_file,
         'num_test_image': num_test_image,
@@ -457,7 +413,7 @@ det_out_param = {
 det_eval_param = {
     'num_classes': num_classes,
     'background_label_id': background_label_id,
-    'overlap_threshold': 0.5,
+    'overlap_threshold': 0.75,
     'evaluate_difficult_gt': False,
     'name_size_file': name_size_file,
     }
@@ -575,8 +531,6 @@ max_iter = 0
 for file in os.listdir(snapshot_dir):
   if file.endswith(".solverstate"):
     basename = os.path.splitext(file)[0]
-    if model_name not in basename:
-	continue
     iter = int(basename.split("{}_iter_".format(model_name))[1])
     if iter > max_iter:
       max_iter = iter

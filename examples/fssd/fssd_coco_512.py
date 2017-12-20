@@ -17,11 +17,6 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     use_relu = True
     # 32 x 32
     from_layer = net.keys()[-1]
-   
-
-   
-
-
     # TODO(weiliu89): Construct the name using the last layer to avoid duplication.
     # 32 x 32
     out_layer = "conv6_1"
@@ -40,40 +35,6 @@ def AddExtraLayers(net, use_batchnorm=True, lr_mult=1):
     out_layer = "conv7_2"
     ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,lr_mult = 1)
 
-     # 4 x 4
-    '''
-    from_layer = out_layer
-    out_layer = "conv8_1"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=1)
-
-    from_layer = out_layer
-    out_layer = "conv8_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,
-      lr_mult=1)
-
-    # 2 x 2
-    from_layer = out_layer
-    out_layer = "conv9_1"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=1)
-
-    from_layer = out_layer
-    out_layer = "conv9_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 3, 1, 2,
-      lr_mult=1)
-
-    # 1 x 1
-    from_layer = out_layer
-    out_layer = "conv10_1"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 128, 1, 0, 1,
-      lr_mult=1)
-
-    from_layer = out_layer
-    out_layer = "conv10_2"
-    ConvBNLayer(net, from_layer, out_layer, use_batchnorm, use_relu, 256, 4, 1, 1,
-      lr_mult=1)
-    '''
     #net['conv3_3_ds'] = L.Pooling(net['conv3_3'], pool=P.Pooling.MAX, pad=0, kernel_size=2, stride=2)
     ConvBNLayer(net, "conv4_3",  "conv4_3_reduce", use_batchnorm, use_relu, 256, 1, 0, 1,
         lr_mult=lr_mult)
@@ -270,7 +231,7 @@ else:
     base_lr = 0.00004
 
 # Modify the job name if you want.
-job_name = "SSD_FPN_NO33_WOP{}".format(resize)
+job_name = "FSSD_NO33_WOP{}".format(resize)
 # The name of the model. Modify it if you want.
 model_name = "VGG_COCO_{}".format(job_name)
 
@@ -297,8 +258,6 @@ job_file = "{}/{}.sh".format(job_dir, model_name)
 # Stores the test image names and sizes. Created by data/VOC0712/create_list.sh
 name_size_file = "data/coco/minival2014_name_size.txt"
 # The pretrained model. We use the Fully convolutional reduced (atrous) VGGNet.
-#pretrain_model = "/mnt/lvmhdd1/zuoxin/ssd_models/models/VGGNet/VOC0712/SSD_512x512/VGG_VOC0712_SSD_512x512_iter_120000.caffemodel"
-#pretrain_model = "ssd_models/VGG_VOC0712_SSD_512x512_iter_120000.caffemodel"
 pretrain_model = "ssd_models/VGG_ILSVRC_16_layers_fc_reduced.caffemodel"
 # Stores LabelMapItem.
 label_map_file = "data/coco/labelmap_coco.prototxt"
