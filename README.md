@@ -129,4 +129,4 @@ We have provided the latest models that are trained from different datasets. To 
 <sup>[1]</sup>We use [`examples/convert_model.ipynb`](https://github.com/weiliu89/caffe/blob/ssd/examples/convert_model.ipynb) to extract a VOC model from a pretrained COCO model.
 ## FSSD models
 1. PASCAL VOC models:
-   * 07+12: [FSSD300](https://drive.google.com/open?id=1aJWJvkqSkYUDqIzejtW8QSyjum5wEi-a)
+   * 07+12: [FSSD300](https://drive.google.com/open?id=1O7GnGdezyH_0Vj5ph1KOZVb9iGGsFpEv)
