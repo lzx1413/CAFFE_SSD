@@ -130,6 +130,8 @@ We have provided the latest models that are trained from different datasets. To 
 ## FSSD models
 1. PASCAL VOC models:
    * 07+12: [FSSD300](https://drive.google.com/open?id=1O7GnGdezyH_0Vj5ph1KOZVb9iGGsFpEv)
+   * COCO+07+12: [FSSD300](https://drive.google.com/open?id=1EK0BzlGXzXqyx_VbGDYBGvF_-nop5zn9)
+   [FSSD512](https://drive.google.com/open?id=1cEc4xfde6BvRp-fyJKdHkcdGSKAscmS4)
 2. COCO models:
    * trainval35k: [FSSD300](https://drive.google.com/open?id=1NJAwTsWoShPxDxJVICNFvMVf8ufwgT6q)
    [FSSD512](https://drive.google.com/open?id=1oXMFbYQaxWTFoy2-N4CWI_lenv223_YA)
